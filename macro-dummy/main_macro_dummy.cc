@@ -19,7 +19,7 @@
 /*!
  * \file
  *
- * \brief A test problem for the coupled Stokes/Darcy problem (1p)
+ * \brief Dummy macro simulation which is coupled to a set of micro simulations via preCICE and the Micro Manager
  */
 #include <config.h>
 
@@ -28,35 +28,22 @@
 
 #include <dune/common/parallel/mpihelper.hh>
 #include <dune/common/timer.hh>
+#include <dune/grid/io/file/dgfparser/dgfexception.hh>
 #include <dune/istl/io.hh>
 
-#include <dumux/common/properties.hh>
-#include <dumux/common/parameters.hh>
 #include <dumux/common/dumuxmessage.hh>
-
-#include <dumux/assembly/fvassembler.hh>
-#include <dumux/assembly/diffmethod.hh>
-
-#include <dumux/discretization/method.hh>
-
-#include <dumux/io/vtkoutputmodule.hh>
-#include <dumux/io/grid/gridmanager.hh>
-#include <dumux/io/loadsolution.hh>
+#include <dumux/common/parameters.hh>
 
 #include "main_macro_dummy.hh"
-
-#include "dumux-precice/couplingadapter.hh"
 
 //HK
 #include <map>
 
 
 int main(int argc, char** argv)
-{   
-    """
-    Dummy macro simulation which is coupled to a set of micro simulations via preCICE and the Micro Manager
-    """
-
+try {   
+    using namespace Dumux;
+    
     // initialize MPI, finalize is done automatically on exit
     const auto &mpiHelper = Dune::MPIHelper::instance(argc, argv);
 
@@ -94,19 +81,18 @@ int main(int argc, char** argv)
     //Coupling mesh
     std::vector<double> coords; //( dim * vertexSize );
     for (int x = 0; x < nv; x++){
-        for (int d = 0; d < couplingInterface.getDimensions(), d++){
+        for (int d = 0; d < couplingInterface.getDimensions(); d++){
             coords.push_back(x);
         }
     }
 
     //Define Gauss points on entire domain as coupling mesh
-    auto numberOfPoints = coords.size()/dim;
+    auto numberOfPoints = coords.size()/couplingInterface.getDimensions();
     couplingInterface.setMesh(meshName, numberOfPoints, coords);
 
     std::map<std::string, int> readDataIDs;
-    auto iter == readDataNames.begin();
-    while (iter != readDataNames.end()){
-        readDataIDs[iter->first] = couplingInterface.announceQuantity(iter->first) //getDataID
+    for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
+        readDataIDs[iter->first] = couplingInterface.announceQuantity(iter->first); //getDataID
         ++iter;
     }
 
@@ -122,20 +108,20 @@ int main(int argc, char** argv)
     std::vector<double> writeScalarData;
     std::vector<double> writeVectorData; 
 
-    for (int i = 0; i < nv, i++){
+    for (int i = 0; i < nv; i++){
         writeScalarData.push_back(i);
         for (int d = 0; d < couplingInterface.getDimensions(); d++){
-            writeVectorData.pushback(i);
+            writeVectorData.push_back(i);
         }
     }
 
-    if couplingInterface.hasToWriteInitialData(){
+    if (couplingInterface.hasToWriteInitialData()){
         for (auto iter = writeDataNames.begin(); iter != writeDataNames.end(); iter++){
             if (iter->second == 0){
-                couplingInterface.writeScalarQuantityToOtherSolver();
+                couplingInterface.writeScalarQuantityToOtherSolver(writeDataIDs[iter->first]);
             }
             else if (iter->second == 1){
-                couplingInterface.writeScalarQuantityToOtherSolver(); //Scalar meh.. but dealing only in scalars rn
+                couplingInterface.writeScalarQuantityToOtherSolver(writeDataIDs[iter->first]); //Scalar meh.. but dealing only in scalars rn
             }
         }
         couplingInterface.announceInitialDataWritten();
@@ -143,6 +129,8 @@ int main(int argc, char** argv)
     couplingInterface.initializeData();
 
     //time loop
+    auto dt = preciceDt;
+
     while (couplingInterface.isCouplingOngoing()) {
         // write checkpoint
         if (couplingInterface.hasToWriteIterationCheckpoint()) {
@@ -154,18 +142,43 @@ int main(int argc, char** argv)
         // Read porosity and apply
         for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
             if (iter->second == 0){
-                couplingInterface.readScalarQuantityFromOtherSolver(iter->first);
+                couplingInterface.readScalarQuantityFromOtherSolver(readDataIDs[iter->first]);
             }
             else if (iter->second == 1){ 
-                couplingInterface.readScalarQuantityFromOtherSolver(iter->first); //again: meh
+                couplingInterface.readScalarQuantityFromOtherSolver(readDataIDs[iter->first]); //again: meh
             }
         }
-    }
 
+        //couplingInterface.writeScalarQuantityVector() or sth to do write_scalar_data[:] = read_scalar_data[:] &same for vector
+        for (auto iter = writeDataNames.begin(); iter != writeDataNames.end(); iter++){
+            if (iter->second == 0){
+                couplingInterface.writeScalarQuantityToOtherSolver(writeDataIDs[iter->first]);
+            }
+            else if (iter->second == 1){ 
+                couplingInterface.writeScalarQuantityToOtherSolver(writeDataIDs[iter->first]); //again: meh
+            }
+        }
+        //do the coupling 
+        const double preciceDt = couplingInterface.advance(dt);
+        dt = std::min(preciceDt, dt);
+
+        //advance variables
+        n += 1;
+        t += dt;
+
+        if (couplingInterface.hasToReadIterationCheckpoint()){
+            std::cout << "Reverting to old macro state";
+            t = t_checkpoint;
+            n = n_checkpoint;
+            couplingInterface.announceIterationCheckpointRead();
+        }
+    }
     
     ////////////////////////////////////////////////////////////
     // finalize, print dumux message to say goodbye
     ////////////////////////////////////////////////////////////
+
+    couplingInterface.finalize();
 
     // print dumux end message
     if (mpiHelper.rank() == 0)
@@ -174,5 +187,22 @@ int main(int argc, char** argv)
         DumuxMessage::print(/*firstCall=*/false);
     }
 
-    return 0;
-} // end main
+    return 0; //end main
+} catch (Dumux::ParameterException &e) {
+    std::cerr << std::endl << e << " ---> Abort!" << std::endl;
+    return 1;
+} catch (Dune::DGFException &e) {
+    std::cerr << "DGF exception thrown (" << e
+              << "). Most likely, the DGF file name is wrong "
+                 "or the DGF file is corrupted, "
+                 "e.g. missing hash at end of file or wrong number "
+                 "(dimensions) of entries."
+              << " ---> Abort!" << std::endl;
+    return 2;
+} catch (Dune::Exception &e) {
+    std::cerr << "Dune reported error: " << e << " ---> Abort!" << std::endl;
+    return 3;
+} catch (...) {
+    std::cerr << "Unknown exception thrown! ---> Abort!" << std::endl;
+    return 4;
+}

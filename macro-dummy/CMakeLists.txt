@@ -28,6 +28,5 @@ dumux_add_test(NAME test_macro_dummy
               TIMEOUT 60
               COMMAND ${CMAKE_SOURCE_DIR}/test/run-iterative-test.py
               CMD_ARGS
-              --dumux-param-file ${CMAKE_SOURCE_DIR}/examples/macro-micro/macro-dummy/params.input 
               --precice-config-file ${CMAKE_SOURCE_DIR}/examples/macro-micro/macro-dummy/precice-config.xml
 )  
