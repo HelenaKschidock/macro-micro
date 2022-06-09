@@ -6,7 +6,7 @@ target_link_libraries(test_macro_dummy PRIVATE dumux-precice)
 add_input_file_links()
 
 macro(add_precice_file_links)
-  FILE(GLOB precice_files *.xml)
+  FILE(GLOB precice_input_files *.xml)
   foreach(VAR ${precice_input_files})
     get_filename_component(file_name ${VAR} NAME)
     dune_symlink_to_source_files(FILES ${file_name})
@@ -28,5 +28,5 @@ dumux_add_test(NAME test_macro_dummy
               TIMEOUT 60
               COMMAND ${CMAKE_SOURCE_DIR}/test/run-iterative-test.py
               CMD_ARGS
-              --precice-config-file ${CMAKE_SOURCE_DIR}/examples/macro-micro/macro-dummy/precice-config.xml
+              --precice-config-file ${CMAKE_SOURCE_DIR}/examples/macro-micro/macro-dummy/precice-config-dummy.xml
 )  

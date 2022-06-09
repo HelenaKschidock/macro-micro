@@ -65,7 +65,7 @@ try {
     // - What rank of how many ranks this instance is
     // Configure preCICE. For now the config file is hardcoded.
 
-    std::string preciceConfigFilename = "precice-config.xml";
+    std::string preciceConfigFilename = "precice-config-dummy.xml";
     if (argc > 2)
         preciceConfigFilename = argv[argc - 1];
 
