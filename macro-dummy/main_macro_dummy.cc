@@ -87,12 +87,9 @@ int main(int argc, char** argv)
                                      mpiHelper.rank(), mpiHelper.size());
 
     //define coupling meshes
-    std::string readMeshName = "macro-mesh";
-    std::string writeMeshName = "macro-mesh";
-    int readMeshID = couplingInterface.getIdFromName(readMeshName);
+    std::string meshName = "macro-mesh";
     std::map<std::string, int> readDataNames = {{"micro-scalar-data", 0}, {"micro-vector-data", 1}};
-    int writeMeshID = couplingInterface.getIdFromName(writeMeshName);
-    std::map<std::string, int> readDataNames = {{"macro-scalar-data", 0},{"macro-vector-data", 1}};
+    std::map<std::string, int> writeDataNames = {{"macro-scalar-data", 0},{"macro-vector-data", 1}};
 
     //Coupling mesh
     std::vector<double> coords; //( dim * vertexSize );
@@ -104,7 +101,7 @@ int main(int argc, char** argv)
 
     //Define Gauss points on entire domain as coupling mesh
     auto numberOfPoints = coords.size()/dim;
-    couplingInterface.setMesh(readMeshName, numberOfPoints, coords);
+    couplingInterface.setMesh(meshName, numberOfPoints, coords);
 
     std::map<std::string, int> readDataIDs;
     auto iter == readDataNames.begin();
@@ -123,7 +120,7 @@ int main(int argc, char** argv)
     const double preciceDt = couplingInterface.initialize();
 
     std::vector<double> writeScalarData;
-    std::vector<double> writeVectorData;
+    std::vector<double> writeVectorData; 
 
     for (int i = 0; i < nv, i++){
         writeScalarData.push_back(i);
@@ -155,7 +152,14 @@ int main(int argc, char** argv)
             couplingInterface.announceIterationCheckpointWritten();
         }
         // Read porosity and apply
-        //TBC
+        for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
+            if (iter->second == 0){
+                couplingInterface.readScalarQuantityFromOtherSolver(iter->first);
+            }
+            else if (iter->second == 1){ 
+                couplingInterface.readScalarQuantityFromOtherSolver(iter->first); //again: meh
+            }
+        }
     }
 
     
