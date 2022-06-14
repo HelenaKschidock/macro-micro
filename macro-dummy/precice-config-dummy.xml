@@ -36,7 +36,7 @@
       <write-data name="micro-vector-data" mesh="macro-mesh"/>
     </participant>
 
-    <m2n:sockets from="Micro-Manager" to="Macro-dummy"/>
+    <m2n:sockets from="Micro-Manager" to="Macro-dummy" exchange-directory="/home/kschidock/FM/DuMuX/dumux/dumux-precice"/>
 
     <coupling-scheme:parallel-implicit>
        <participants first="Macro-dummy" second="Micro-Manager"/>
