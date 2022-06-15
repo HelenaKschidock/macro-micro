@@ -1,0 +1,3 @@
+macro-heat/
+*.log
+**/__pycache__
