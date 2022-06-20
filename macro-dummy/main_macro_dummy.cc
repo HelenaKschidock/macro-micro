@@ -43,8 +43,8 @@
 int main(int argc, char** argv)
 try {   
     using namespace Dumux;
-    using namespace Dumux::Precice; //for QuantityVector //TODO check
-    
+    using namespace Dumux::Precice; //for QuantityType 
+
     // initialize MPI, finalize is done automatically on exit
     const auto &mpiHelper = Dune::MPIHelper::instance(argc, argv);
 
@@ -94,7 +94,6 @@ try {
 
     //initialize preCICE
     const double preciceDt = couplingInterface.initialize();
-    std::cout << "\n  Check: Initialized precice. ";
 
     //Coupling data
     std::map<std::string, int> readDataIDs;
@@ -109,7 +108,6 @@ try {
 
     std::map<std::string, int> writeDataIDs;
     for (auto iter = writeDataNames.begin(); iter != writeDataNames.end(); iter++){
-        std::cout << "\n iter = " << iter->first << " , " << iter->second;
         if (iter->second == 0){
             writeDataIDs[iter->first] = couplingInterface.announceScalarQuantity(iter->first); 
         }
@@ -117,7 +115,6 @@ try {
             writeDataIDs[iter->first] = couplingInterface.announceVectorQuantity(iter->first); 
         }
     }
-    std::cout <<"\n Check: Announce Quantity.";
     
     std::vector<double> writeScalarData;
     std::vector<double> writeVectorData; 
@@ -126,7 +123,6 @@ try {
 
     for (int i = 0; i < nv; i++){
         writeScalarData.push_back(i);
-        //writeVectorData.push_back(std::vector<double>(couplingInterface.getDimensions(), i));
         for (int d = 0; d < couplingInterface.getDimensions(); d++){
             writeVectorData.push_back(i);
         }
@@ -139,7 +135,6 @@ try {
         else if (iter->second == 1){
             couplingInterface.writeQuantityVector(writeDataIDs[iter->first], writeVectorData); 
         }
-        std::cout << "\n Check: write QuantityVector iter = " << iter->first;
     }
 
     if (couplingInterface.hasToWriteInitialData()){
@@ -150,13 +145,10 @@ try {
             else if (iter->second == 1){
                 couplingInterface.writeQuantityToOtherSolver(writeDataIDs[iter->first], QuantityType::Vector); 
             }
-            std::cout << "\n Check: write InitialData iter = " << iter->first;
         }
         couplingInterface.announceInitialDataWritten();
-        std::cout << "\n Check: InitialDataWritten data.";
     }
     couplingInterface.initializeData();
-    std::cout << "\n Check: Initialized data.";
 
     //time loop
     auto dt = preciceDt;
@@ -164,12 +156,11 @@ try {
     while (couplingInterface.isCouplingOngoing()) {
         // write checkpoint
         if (couplingInterface.hasToWriteIterationCheckpoint()) {
-            std::cout << "Saving macro state.";
+            std::cout << "Saving macro state. \n";
             t_checkpoint = t;
             n_checkpoint = n;
             couplingInterface.announceIterationCheckpointWritten();
         }
-        std::cout << "\n Check: anounced IterationCheckpointWritten.";
         // Read porosity and apply
         for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
             if (iter->second == 0){
@@ -180,7 +171,6 @@ try {
                 couplingInterface.readQuantityFromOtherSolver(readDataIDs[iter->first], QuantityType::Vector);
             }
         }
-        std::cout << "\n Check: ReadScalarQuantity data.";
         for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
             if (iter->second == 0){
                 readScalarData = couplingInterface.getQuantityVector(readDataIDs[iter->first]);
@@ -189,12 +179,9 @@ try {
                 readVectorData = couplingInterface.getQuantityVector(readDataIDs[iter->first]);
             }
         }
-        std::cout << "\n Check: getQuantityVector.";
 
         writeScalarData = readScalarData;
         writeVectorData = readVectorData;
-
-        std::cout << "\n Check: read to write";
 
         for (auto iter = writeDataNames.begin(); iter != writeDataNames.end(); iter++){
             if (iter->second == 0){
@@ -203,7 +190,6 @@ try {
             else if (iter->second == 1){
                 couplingInterface.writeQuantityVector(writeDataIDs[iter->first], writeVectorData); 
             }
-            std::cout << "\n Check: write QuantityVector iter = " << iter->first;
         }
 
         for (auto iter = writeDataNames.begin(); iter != writeDataNames.end(); iter++){
