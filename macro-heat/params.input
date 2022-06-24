@@ -1,0 +1,30 @@
+[Grid]
+LowerLeft = 0 0
+UpperRight = 1 1
+Cells = 5 5
+
+[TimeLoop]
+TEnd = 1 
+TOutput = 0.1
+
+[Problem]
+Name = macro-heat
+
+[BoundaryConditions]
+BcTypeLeft = neumann
+BcTypeRight = neumann
+BcTypeTop = dirichlet
+BcTypeBottom = dirichlet
+BcLeft = 0
+BcRight = 0
+BcTop = 273
+BcBootom = 400
+
+[InitialConditions]
+Temperature = 273
+Phi = 0.5
+k = 1.0
+
+[SpatialParameters]
+RhoS = 1.0
+RhoG = 2.0
