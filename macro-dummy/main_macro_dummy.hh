@@ -26,16 +26,5 @@
 
 #include <dumux-precice/couplingadapter.hh>
 
-/*namespace Dumux{
-    namespace Properties{
-    //Set the grid type
-    } //namespace Properties
-
-    template<class TypeTag>
-    class DummyProblem : public PorousMediumFlowProblem<TypeTag>{
-        using ParentType = NavierStokesProblem;
-    }
-} // namespace Dumux */
-
 #endif //DUMUX_MACRO_DUMMY_HH
 
