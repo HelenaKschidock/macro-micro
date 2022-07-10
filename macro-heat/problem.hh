@@ -36,6 +36,10 @@
 #include <dumux/porousmediumflow/problem.hh>
 
 #include <dumux/material/components/h2o.hh>
+
+
+#include <dumux-precice/couplingadapter.hh>
+
 namespace Dumux {
 
 /*!
@@ -82,7 +86,8 @@ class OnePNIConductionProblem : public PorousMediumFlowProblem<TypeTag>
 
 public:
     OnePNIConductionProblem(std::shared_ptr<const GridGeometry> gridGeometry, const std::string& paramGroup)
-    : ParentType(gridGeometry, paramGroup)
+    : ParentType(gridGeometry, paramGroup),
+      couplingInterface_(Dumux::Precice::CouplingAdapter::getInstance())
     {
         //initialize fluid system
         FluidSystem::init();
@@ -221,6 +226,8 @@ public:
     // \}
 
 private:
+    Dumux::Precice::CouplingAdapter &couplingInterface_;
+
     // the internal method for the initial condition
     PrimaryVariables initial_() const
     {

@@ -56,7 +56,7 @@ struct OnePNIConductionCCMpfa { using InheritsFrom = std::tuple<OnePNIConduction
 
 // Set the grid type
 template<class TypeTag>
-struct Grid<TypeTag, TTag::OnePNIConduction> { using type = Dune::YaspGrid<2>; };
+struct Grid<TypeTag, TTag::OnePNIConduction> { using type = Dune::YaspGrid<2>; }; //structured parallel 2D grid
 
 // Set the problem property
 template<class TypeTag>

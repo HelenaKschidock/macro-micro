@@ -18,8 +18,7 @@
  *****************************************************************************/
 /*!
  * \file
- * \ingroup OnePTests
- * \brief Test for the 1pni CC model
+ * \brief Dummy macro 1pni simulation which is coupled to a set of micro simulations via preCICE and the Micro Manager
  */
 
 #include <config.h>
@@ -50,6 +49,9 @@
 #include <dumux/io/vtkoutputmodule.hh>
 #include <dumux/io/grid/gridmanager.hh>
 #include <dumux/io/loadsolution.hh>
+
+#include <map>
+#include <list>
 
 /*!
  * \brief Provides an interface for customizing error messages associated with
@@ -93,6 +95,7 @@ int main(int argc, char** argv)
 
     // parse command line arguments and input file
     Parameters::init(argc, argv, usage);
+    Parameters::print();
 
     // try to create a grid (from the given grid file or the input file)
     GridManager<GetPropType<TypeTag, Properties::Grid>> gridManager;
@@ -114,28 +117,86 @@ int main(int argc, char** argv)
     const std::string paramGroup = GridGeometry::discMethod == DiscretizationMethods::ccmpfa ? "MpfaTest" : "";
     auto problem = std::make_shared<Problem>(gridGeometry, paramGroup);
 
+    // Initialize preCICE.Tell preCICE about:
+    // - Name of solver
+    // - What rank of how many ranks this instance is
+    // Configure preCICE. For now the config file is hardcoded.
+
+    std::string preciceConfigFilename = "precice-config-heat.xml";
+    if (argc > 2)
+        preciceConfigFilename = argv[argc - 1];
+
+    auto &couplingInterface = Dumux::Precice::CouplingAdapter::getInstance();
+    couplingInterface.announceSolver("Macro-heat", preciceConfigFilename,
+                                     mpiHelper.rank(), mpiHelper.size());
+
+    //verify that dimensions match
+    const int dim = couplingInterface.getDimensions();
+    std::cout << dim << "  " << int(leafGridView.dimension) << std::endl;
+    if (dim != int(leafGridView.dimension)){
+        DUNE_THROW(Dune::InvalidStateException, "Dimensions do not match");
+    }
+
+    //get mesh coordinates *TODO: check (from dumux-precice)
+    std::string meshName = "macro-mesh";
+    const double xMin =
+        getParamFromGroup<std::vector<double>>("Darcy", "Grid.LowerLeft")[0];
+    const double xMax =
+        getParamFromGroup<std::vector<double>>("Darcy", "Grid.UpperRight")[0];
+    std::vector<double> coords;  //( dim * vertexSize );
+    std::vector<int> coupledScvfIndices;
+
+    for (const auto &element : elements(leafGridView)) {
+        auto fvGeometry = localView(*gridGeometry);
+        fvGeometry.bindElement(element);
+
+        for (const auto &scvf : scvfs(fvGeometry)) {
+            static constexpr auto eps = 1e-7;
+            const auto &pos = scvf.center();
+            if (pos[1] < gridGeometry->bBoxMin()[1] + eps) {
+                if (pos[0] > xMin - eps && pos[0] < xMax + eps) {
+                    coupledScvfIndices.push_back(scvf.index());
+                    for (const auto p : pos)
+                        coords.push_back(p);
+                }
+            }
+        }
+    }
+
+    //initialize preCICE
+    auto numberOfPoints = coords.size()/dim;
+    const double preciceDt = couplingInterface.setMeshAndInitialize(
+        meshName, numberOfPoints, coords);
+    couplingInterface.createIndexMapping(coupledScvfIndices);
+
+    //coupling data
+    std::list<std::string> readDataNames = {"k_00", "k_01", "k_10", "k_11", "porosity"};
+    std::map<std::string,int> readDataIDs;
+    for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
+        readDataIDs[iter->c_str()] = couplingInterface.announceScalarQuantity(iter->c_str());
+    }
+    std::string writeDataName = "temperature";
+    int temperatureID = couplingInterface.announceScalarQuantity(writeDataName);
+
+    //TODO not sure if this is needed/correct
+    std::vector<double> poroData;
+    std::vector<double> k_00;
+    std::vector<double> k_01;
+    std::vector<double> k_10;
+    std::vector<double> k_11;
+    std::map<std::string, std::vector<double>> conductivityData {{"k_00", k_00}, {"k_01", k_01}, {"k_10", k_10}, {"k_11", k_11}};
+
+    problem->updatePreciceDataIds();
+
     // get some time loop parameters
     using Scalar = GetPropType<TypeTag, Properties::Scalar>;
     const auto tEnd = getParam<Scalar>("TimeLoop.TEnd");
-    const auto maxDt = getParam<Scalar>("TimeLoop.MaxTimeStepSize");
-    auto dt = getParam<Scalar>("TimeLoop.DtInitial");
-
-    // check if we are about to restart a previously interrupted simulation
-    Scalar restartTime = getParam<Scalar>("Restart.Time", 0);
+    auto dt = preciceDt;
 
     // the solution vector
     using SolutionVector = GetPropType<TypeTag, Properties::SolutionVector>;
     SolutionVector x(gridGeometry->numDofs());
-    if (restartTime > 0)
-    {
-        using IOFields = GetPropType<TypeTag, Properties::IOFields>;
-        using PrimaryVariables = GetPropType<TypeTag, Properties::PrimaryVariables>;
-        using ModelTraits = GetPropType<TypeTag, Properties::ModelTraits>;
-        const auto fileName = getParam<std::string>("Restart.File");
-        loadSolution(x, fileName, createPVNameFunction<IOFields, PrimaryVariables, ModelTraits>(), *gridGeometry);
-    }
-    else
-        problem->applyInitialSolution(x);
+    problem->applyInitialSolution(x);
     auto xOld = x;
 
     // the grid variables
@@ -150,14 +211,21 @@ int main(int argc, char** argv)
     vtkWriter.addVelocityOutput(std::make_shared<VelocityOutput>(*gridVariables));
     IOFields::initOutputModule(vtkWriter); // Add model specific output fields
     vtkWriter.addField(problem->getExactTemperature(), "temperatureExact");
-    vtkWriter.write(restartTime);
+    vtkWriter.write(0.0); //restart time = 0
+
+    //initialize coupling data
+    couplingInterface.writeQuantityVector(temperatureID, problem->getExactTemperature());
+    if (couplingInterface.hasToWriteInitialData()){
+        couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);
+        couplingInterface.announceInitialDataWritten();
+    }
+    couplingInterface.initializeData();
 
     // output every vtkOutputInterval time step
     const int vtkOutputInterval = getParam<int>("Problem.OutputInterval");
 
     // instantiate time loop
     auto timeLoop = std::make_shared<TimeLoop<Scalar>>(0.0, dt, tEnd);
-    timeLoop->setMaxTimeStepSize(maxDt);
 
     // the assembler with time loop for instationary problem
     using Assembler = FVAssembler<TypeTag, DiffMethod::numeric>;
@@ -173,16 +241,42 @@ int main(int argc, char** argv)
 
     // time loop
     timeLoop->start(); do
-    {
+    {   // write checkpoint
+        if (couplingInterface.hasToWriteIterationCheckpoint()) {
+            xOld = x;
+            couplingInterface.announceIterationCheckpointWritten();
+        }
+
+        //Read porosity and apply TODO write into dumux
+        couplingInterface.readQuantityFromOtherSolver(readDataIDs["porosity"], QuantityType::Scalar);
+        poroData = couplingInterface.getQuantityVector(readDataIDs["porosity"]);
+
+
+        //Read conductivity and apply TODO write into dumux
+        for (auto iter = conductivityData.begin(); iter != conductivityData.end(); iter++){
+            couplingInterface.readQuantityFromOtherSolver(readDataIDs[iter->first], QuantityType::Scalar);
+            conductivityData[iter->first] = couplingInterface.getQuantityVector(readDataIDs[iter->first]);
+        }
+
         // linearize & solve
         nonLinearSolver.solve(x, *timeLoop);
 
         // compute the new analytical temperature field for the output
         problem->updateExactTemperature(x, timeLoop->time()+timeLoop->timeStepSize());
+        couplingInterface.writeQuantityVector(temperatureID, problem->getExactTemperature());
+        couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);
 
         // make the new solution the old solution
-        xOld = x;
-        gridVariables->advanceTimeStep();
+        if (couplingInterface.hasToReadIterationCheckpoint()) {
+            //            //Read checkpoint
+            //            freeFlowVtkWriter.write(vtkTime);
+            //            vtkTime += 1.;
+            x = xOld;
+            gridVariables->update(x);
+            gridVariables->advanceTimeStep();
+            //freeFlowGridVariables->init(sol);
+            couplingInterface.announceIterationCheckpointRead();
+        }
 
         // advance to the time loop to the next step
         timeLoop->advanceTimeStep();
@@ -190,19 +284,26 @@ int main(int argc, char** argv)
         // report statistics of this time step
         timeLoop->reportTimeStep();
 
-        // set new dt as suggested by the newton solver
-        timeLoop->setTimeStepSize(nonLinearSolver.suggestTimeStepSize(timeLoop->timeStepSize()));
+        //advance precice
+        const double preciceDt = couplingInterface.advance(dt);
+        dt = std::min(preciceDt, nonLinearSolver.suggestTimeStepSize(timeLoop->timeStepSize()))
 
+        // set new dt as suggested by the newton solver or by precice
+        timeLoop->setTimeStepSize(dt);
+
+        //TODO output every 0.1
         if (timeLoop->timeStepIndex()==0 || timeLoop->timeStepIndex() % vtkOutputInterval == 0 || timeLoop->finished())
             vtkWriter.write(timeLoop->time());
 
-    } while (!timeLoop->finished());
+    } while (!timeLoop->finished() && couplingInterface.isCouplingOngoing());
 
     timeLoop->finalize(leafGridView.comm());
 
     ////////////////////////////////////////////////////////////
     // finalize, print dumux message to say goodbye
     ////////////////////////////////////////////////////////////
+
+    couplingInterface.finalize();
 
     // print dumux end message
     if (mpiHelper.rank() == 0)
