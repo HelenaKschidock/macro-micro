@@ -39,6 +39,18 @@
 
 #include <map>
 
+#include <dumux/io/vtkoutputmodule.hh>
+#include <dumux/io/grid/gridmanager.hh>
+
+#include <dumux/assembly/fvassembler.hh>
+
+
+#include <dumux/linear/seqsolverbackend.hh>
+#include <dumux/linear/linearsolvertraits.hh>
+#include <dumux/nonlinear/newtonsolver.hh>
+
+
+
 /* NOTES: 
 from nutils import mesh, function, solver, export, cli
 import treelog
@@ -65,11 +77,46 @@ try {
     // parse command line arguments and input file
     Parameters::init(argc, argv);
     Parameters::print();
-    //Parameters::init(params.input);
+
     // Elements in one direction
     int nelems = 5;
+    // Define the sub problem type tags
+    using OnePNIConductionTypeTag = Properties::TTag::OnePNIConduction; //TODO do we need this? 
     
-    // TODO topo, geom = mesh.unitsquare(nelems, 'square')
+    // try to create a grid (from the given grid file or the input file)
+    using GridManager = Dumux::GridManager<GetPropType<OnePNIConductionTypeTag, Properties::Grid>>;
+    GridManager gridManager;
+    gridManager.init("Grid"); //pass parameter group ??? TODO verify
+
+    ////////////////////////////////////////////////////////////
+    // run instationary non-linear problem on this grid
+    ////////////////////////////////////////////////////////////
+
+    // we compute on the leaf grid view
+    const auto& leafGridView = gridManager.grid().leafGridView();
+
+    // create the finite volume grid geometry
+    using GridGeometry = GetPropType<OnePNIConductionTypeTag, Properties::GridGeometry>;
+    auto gridGeometry = std::make_shared<GridGeometry>(leafGridView);
+    gridGeometry->update(); //TODO why? can we leave this out?
+
+     // the problem (initial and boundary conditions)
+    using Problem = GetPropType<OnePNIConductionTypeTag, Properties::Problem>;
+    //TODO check this? do we need this? const std::string paramGroup = GridGeometry::discMethod == DiscretizationMethods::ccmpfa ? "MpfaTest" : ""; 
+    auto problem = std::make_shared<Problem>(gridGeometry);//, paramGroup);
+
+    // the solution vector  
+    using SolutionVector = GetPropType<OnePNIConductionTypeTag, Properties::SolutionVector>;
+    SolutionVector sol(gridGeometry->numDofs()); //degrees of freedom
+    std::cout << sol;
+    /* TODO do we need this resizing?
+        sol[FreeFlowGridGeometry::cellCenterIdx()].resize(
+        freeFlowGridGeometry->numCellCenterDofs());
+    sol[FreeFlowGridGeometry::faceIdx()].resize(
+        freeFlowGridGeometry->numFaceDofs());
+    */
+
+
 
     /* TODO
     ns = function.Namespace(fallback_length=2)
@@ -86,9 +133,9 @@ try {
     */
 
     //initial values
-    
-    float phi = 0.5; 
-    float k = 1.0;
+    //do this via params
+    //float phi = 0.5; 
+    //float k = 1.0;
 
     /* TODO
     ns.rhos = 1.0
@@ -117,20 +164,46 @@ try {
 
     //define coupling meshes 
     std::string meshName = "macro-mesh";
-    //TODO: confirm that not needed: mesh_id = interface.get_mesh_id(mesh_name)
 
-    //TODO: from macro-dummy.cc: Coupling mesh (but done above already from macro-dummy.py)
-    
-    /*TODO Define Gauss points on entire domain as coupling mesh
-    couplingsample = topo.sample('gauss', degree=2)  # mesh located at Gauss points
-    vertex_ids = interface.set_mesh_vertices(mesh_id, couplingsample.eval(ns.x))
+    const int dim = couplingInterface.getDimensions();
 
-    c++:
-    auto numberOfPoints = coords.size()/couplingInterface.getDimensions();
-    couplingInterface.setMesh(meshName, numberOfPoints, coords);
-    
-    print("Number of coupling vertices = {}".format(len(vertex_ids)))
+    std::cout << dim << "  " << int(leafGridView.dimension) //TODO verify
+              << std::endl;
+    if (dim != int(leafGridView.dimension)) //TODO verify
+        DUNE_THROW(Dune::InvalidStateException, "Dimensions do not match");
+
+    // GET mesh corodinates
+    const double xMin =
+        getParam<std::vector<double>>("Grid.LowerLeft")[0];
+    const double xMax =
+        getParam<std::vector<double>>("Darcy", "Grid.UpperRight")[0];
+    std::vector<double> coords;  //( dim * vertexSize );
+    std::vector<int> coupledScvfIndices;
+    /*TODO
+
+    for (const auto &element : elements(leafGridView)) {
+        auto fvGeometry = localView(*gridGeometry);
+        fvGeometry.bindElement(element);
+
+        for (const auto &scvf : scvfs(fvGeometry)) {
+            static constexpr auto eps = 1e-7;
+            const auto &pos = scvf.center();
+            if (pos[1] < gridGeometry->bBoxMin()[1] + eps) {
+                if (pos[0] > xMin - eps && pos[0] < xMax + eps) {
+                    coupledScvfIndices.push_back(scvf.index());
+                    for (const auto p : pos)
+                        coords.push_back(p);
+                }
+            }
+        }
+    }
     */
+
+    //initialize preCICE
+    auto numberOfPoints = coords.size()/dim;
+    const double preciceDt = couplingInterface.setMeshAndInitialize(
+        meshName, numberOfPoints, coords);
+    //TODO couplingInterface.createIndexMapping(coupledScvfIndices);
 
     /* TODO
     sqrphi = couplingsample.integral((ns.phi - phi) ** 2)
@@ -140,8 +213,7 @@ try {
     solk = solver.optimize('solk', sqrk, droptol=1E-12)
     */
 
-    //initialize preCICE
-    const double preciceDt = couplingInterface.initialize();
+    
 
     //coupling data
     std::list<std::string> readDataNames = {"k_00", "k_01", "k_10", "k_11", "porosity"};
@@ -153,6 +225,28 @@ try {
     std::string writeDataName = "temperature";
     int temperatureID = couplingInterface.announceScalarQuantity(writeDataName); 
 
+    problem->updatePreciceDataIds();  //TODO is this necessary?
+
+    //apply initial solution for instationary problems
+    problem->applyInitialSolution(sol);
+    auto solOld = sol;
+
+    //the grid variables
+    using GridVariables = GetPropType<OnePNIConductionTypeTag, Properties::GridVariables>;
+    auto gridVariables = std::make_shared<GridVariables>(problem, gridGeometry);
+    gridVariables->init(sol);
+
+    // intialize the vtk output module
+    using IOFields = GetPropType<OnePNIConductionTypeTag, Properties::IOFields>;
+    VtkOutputModule<GridVariables, SolutionVector> vtkWriter(*gridVariables, sol, problem->name());
+    //using VelocityOutput = GetPropType<OnePNIConductionTypeTag, Properties::VelocityOutput>;
+    //vtkWriter.addVelocityOutput(std::make_shared<VelocityOutput>(*gridVariables));
+    IOFields::initOutputModule(vtkWriter); // Add model specific output fields
+    //TODO Debug
+    //vtkWriter.addField(problem->getExactTemperature(), "temperatureExact");
+    //vtkWriter.write(0.0);
+
+
     std::vector<double> temperatures;
     std::vector<double> poroData;
     std::vector<double> k_00;
@@ -160,16 +254,7 @@ try {
     std::vector<double> k_10;
     std::vector<double> k_11;
     std::map<std::string, std::vector<double>> conductivityData {{"k_00", k_00}, {"k_01", k_01}, {"k_10", k_10}, {"k_11", k_11}};
-
-    //Time related variables
-    //TODO ns.dt = preciceDt;
-    int n = 0;
-    int n_checkpoint = 0;
-    int t = 0;
-    int t_checkpoint = 0;
-    float t_out = 0.1;
-    int n_out = int(t_out/preciceDt);
-
+    
     //define the weak form
     //TODO res = topo.integral('((rhos phi + (1 - phi) rhog) basis_n dudt + k_ij basis_n,i u_,j) d:x' @ ns, degree=2)
 
@@ -184,12 +269,6 @@ try {
     solu0 = solver.optimize('solu', sqr)
     temperatures = couplingsample.eval('u' @ ns, solu=solu0)
     */
-    couplingInterface.writeQuantityVector(temperatureID, temperatures);
-    if (couplingInterface.hasToWriteInitialData()){
-        couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);
-        couplingInterface.announceInitialDataWritten();
-    }
-    couplingInterface.initializeData();
 
     //prepare the post processing sample
     //TODO bezier = topo.sample('bezier', 2)
@@ -199,14 +278,43 @@ try {
     with treelog.add(treelog.DataLog()):
         export.vtk('macro-heat-initial', bezier.tri, x, T=u)
     */
-    
-    //time loop
-    auto dt = preciceDt;
+    couplingInterface.writeQuantityVector(temperatureID, temperatures);
+    if (couplingInterface.hasToWriteInitialData()){
+        couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);
+        couplingInterface.announceInitialDataWritten();
+    }
+    couplingInterface.initializeData();
 
+    // the assembler for instationary problem
+    using Assembler = FVAssembler<OnePNIConductionTypeTag, DiffMethod::numeric>;
+    auto assembler = std::make_shared<Assembler>(problem, gridGeometry, gridVariables, solOld); //TODO verify
+
+    //the linear solver
+    using LinearSolver = ILU0BiCGSTABBackend; //TODO ???
+    auto linearSolver = std::make_shared<LinearSolver>();
+
+    // the non-linear solver
+    using NewtonSolver = Dumux::NewtonSolver<Assembler, LinearSolver>;
+    NewtonSolver nonLinearSolver(assembler, linearSolver);
+
+
+    //Time related variables
+    //TODO ns.dt = preciceDt;
+    int n = 0;
+    int n_checkpoint = 0;
+    int t = 0;
+    int t_checkpoint = 0;
+    float t_out = 0.1;
+    int n_out = int(t_out/preciceDt);
+    auto dt = preciceDt;
+    auto sol_checkpoint = sol;
+    double vtkTime = 1.0;
+
+    //time loop
     while (couplingInterface.isCouplingOngoing()) {
         // write checkpoint
         if (couplingInterface.hasToWriteIterationCheckpoint()) {
-            //TODO solu_checkpoint = solu0
+            sol_checkpoint = sol; //solu0 in python
             t_checkpoint = t;
             n_checkpoint = n;
             couplingInterface.announceIterationCheckpointWritten();
@@ -214,6 +322,10 @@ try {
         //Read porosity and apply
         couplingInterface.readQuantityFromOtherSolver(readDataIDs["porosity"], QuantityType::Scalar);
         poroData = couplingInterface.getQuantityVector(readDataIDs["porosity"]);
+        
+        nonLinearSolver.solve(sol); //???
+        //problem->updateExactTemperature(x)
+
         /* TODO 
         poro_data = interface.read_block_scalar_data(poro_id, vertex_ids) //see above
         poro_coupledata = couplingsample.asfunction(poro_data)
@@ -238,6 +350,7 @@ try {
         sqrk = couplingsample.integral(((ns.k - k_coupledata) * (ns.k - k_coupledata)).sum([0, 1]))
         solk = solver.optimize('solk', sqrk, droptol=1E-12)
         */
+        //i.e. needs second nonlinear solver for k !! TODOOOOO
 
         /* TODO solve timestep
        solu = solver.solve_linear('solu', res, constrain=cons,
@@ -274,6 +387,27 @@ try {
             }
         }
     }
+    /*TODO 
+            // make the new solution the old solution
+        xOld = x;
+        gridVariables->advanceTimeStep();
+
+        // advance to the time loop to the next step
+        timeLoop->advanceTimeStep();
+
+        // report statistics of this time step
+        timeLoop->reportTimeStep();
+
+        // set new dt as suggested by the newton solver
+        timeLoop->setTimeStepSize(nonLinearSolver.suggestTimeStepSize(timeLoop->timeStepSize()));
+
+        if (timeLoop->timeStepIndex()==0 || timeLoop->timeStepIndex() % vtkOutputInterval == 0 || timeLoop->finished())
+            vtkWriter.write(timeLoop->time());
+
+    } while (!timeLoop->finished());
+
+    timeLoop->finalize(leafGridView.comm());
+    */
     ////////////////////////////////////////////////////////////
     // finalize, print dumux message to say goodbye
     ////////////////////////////////////////////////////////////

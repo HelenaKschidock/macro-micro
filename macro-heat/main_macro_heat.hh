@@ -118,15 +118,24 @@ public:
     {
         //initialize the fluid system
         FluidSystem::init();
+        temperatureExact_.resize(gridGeometry->numDofs());
         name_ = getParam<std::string>("Problem.Name");
         //TODO read out params
     };
     //TODO temperature calculation
+    //! Get the analytical temperature
+    const std::vector<Scalar>& getExactTemperature()
+    {
+        return temperatureExact_;
+    }
+
     //TODO setboundaryconditions
 private:
     Dumux::Precice::CouplingAdapter &couplingInterface_;
     // parameters
     std::string name_;
+    std::vector<Scalar> temperatureExact_;
+
 };
 } //end namespace Dumux
 
