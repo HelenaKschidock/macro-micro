@@ -1,5 +1,5 @@
-add_executable(test_macro_heat EXCLUDE_FROM_ALL main_macro_heat.cc)
-target_compile_definitions(test_macro_heat PUBLIC "ENABLEMONOLITHIC=0")
+add_executable(test_macro_heat_from_dumux_heat EXCLUDE_FROM_ALL main.cc)
+target_compile_definitions(test_macro_heat_from_dumux_heat PUBLIC "ENABLEMONOLITHIC=0")
 target_link_libraries(test_macro_heat PRIVATE dumux-precice)
 
 # add a symlink for each input file
