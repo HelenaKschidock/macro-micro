@@ -28,6 +28,8 @@
 #include <dumux/porousmediumflow/properties.hh>
 #include <dumux/porousmediumflow/fvspatialparams1p.hh>
 
+#include <dumux-precice/couplingadapter.hh>
+
 namespace Dumux {
 
 /*!
@@ -53,7 +55,9 @@ public:
     using PermeabilityType = Scalar;
 
     OnePNISpatialParams(std::shared_ptr<const GridGeometry> gridGeometry)
-    : ParentType(gridGeometry) {}
+    : ParentType(gridGeometry),
+      couplingInterface_(Dumux::Precice::CouplingAdapter::getInstance())
+     {}
 
     /*!
      * \brief Defines the intrinsic permeability \f$\mathrm{[m^2]}\f$.
@@ -61,7 +65,7 @@ public:
      * \param globalPos The global position
      */
     PermeabilityType permeabilityAtPos(const GlobalPosition& globalPos) const
-    { return 1e-10; } //TODO Does this also vary? 
+    {return 1e-10; } //TODO Does this also vary? 
 
     /*!
      * \brief Defines the porosity \f$\mathrm{[-]}\f$.
@@ -74,10 +78,12 @@ public:
     //TODO
 
     Scalar porosityAtPos(const GlobalPosition& globalPos) const 
-    { return 0.4; }
+    //TODO add checks
+    {   return couplingInterface_.getScalarQuantityOnFace(couplingInterface_.getIdFromName("porosity"), faceID); //TODO faceid
+    }
 
     //TODO
-    Scalar temperatureAtPos(const GlobalPosition& globalPos) const
+    Scalar temperatureAtPos(const GlobalPosition& globalPos) const //TODO (this is the default.)
     {
         static const Scalar defaultTemperature = [] ()
         {
@@ -95,7 +101,8 @@ public:
 
         return defaultTemperature;
     }
-
+private:
+    Dumux::Precice::CouplingAdapter &couplingInterface_;
 };
 
 } // end namespace Dumux

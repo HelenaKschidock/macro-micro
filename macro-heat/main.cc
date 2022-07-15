@@ -251,20 +251,15 @@ int main(int argc, char** argv)
             couplingInterface.announceIterationCheckpointWritten();
         }
 
-        //Read porosity and apply write into dumux TODO check
+        //Read porosity and TODO apply write into dumux TODO check
         couplingInterface.readQuantityFromOtherSolver(readDataIDs["porosity"], QuantityType::Scalar);
         poroData = couplingInterface.getQuantityVector(readDataIDs["porosity"]);
-        for(std::size_t i = 0; i < coupledScvfIndices.size(); ++i){
-            couplingInterface.writeScalarQuantityOnFace(readDataIDs["porosity"], coupledScvfIndices[i], poroData[i]);
-        }
 
-        //Read conductivity and apply write into dumux TODO check
+
+        //Read conductivity and TODO apply write into dumux TODO check
         for (auto iter = conductivityData.begin(); iter != conductivityData.end(); iter++){
             couplingInterface.readQuantityFromOtherSolver(readDataIDs[iter->first], QuantityType::Scalar);
             conductivityData[iter->first] = couplingInterface.getQuantityVector(readDataIDs[iter->first]);
-            for(std::size_t i = 0; i < coupledScvfIndices.size(); ++i){
-                couplingInterface.writeScalarQuantityOnFace(readDataIDs[iter->first], coupledScvfIndices[i], conductivityData[iter->first][i]);
-            }
         }
 
         // linearize & solve
@@ -272,9 +267,7 @@ int main(int argc, char** argv)
 
         // compute the new analytical temperature field for the output
         problem->updateExactTemperature(x, timeLoop->time()+timeLoop->timeStepSize());
-        for(std::size_t i = 0; i < coupledScvfIndices.size(); ++i){
-            temperatures[i] = couplingInterface.getScalarQuantityOnFace(temperatureID, coupledScvfIndices[i]); 
-        }
+        //TODO temperatures =...
         couplingInterface.writeQuantityVector(temperatureID, temperatures);
         couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);
 
