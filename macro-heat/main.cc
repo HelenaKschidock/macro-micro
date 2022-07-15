@@ -82,9 +82,10 @@ void usage(const char *progName, const std::string &errorMsg)
 int main(int argc, char** argv)
 {
     using namespace Dumux;
+    using namespace Dumux::Precice; //for QuantityType 
 
     // define the type tag for this problem
-    using TypeTag = Properties::TTag::TYPETAG;
+    using TypeTag = Properties::TTag::OnePNIConductionCCMpfa;
 
     // initialize MPI, finalize is done automatically on exit
     const auto& mpiHelper = Dune::MPIHelper::instance(argc, argv);
@@ -137,12 +138,8 @@ int main(int argc, char** argv)
         DUNE_THROW(Dune::InvalidStateException, "Dimensions do not match");
     }
 
-    //get mesh coordinates *TODO: check (from dumux-precice)
+    //get mesh coordinates *TODO: check (from dumux-precice) - does this also work for CC approach?
     std::string meshName = "macro-mesh";
-    const double xMin =
-        getParamFromGroup<std::vector<double>>("Darcy", "Grid.LowerLeft")[0];
-    const double xMax =
-        getParamFromGroup<std::vector<double>>("Darcy", "Grid.UpperRight")[0];
     std::vector<double> coords;  //( dim * vertexSize );
     std::vector<int> coupledScvfIndices;
 
@@ -153,8 +150,8 @@ int main(int argc, char** argv)
         for (const auto &scvf : scvfs(fvGeometry)) {
             static constexpr auto eps = 1e-7;
             const auto &pos = scvf.center();
-            if (pos[1] < gridGeometry->bBoxMin()[1] + eps) {
-                if (pos[0] > xMin - eps && pos[0] < xMax + eps) {
+            if (pos[1] > getParam<std::vector<double>>("Grid.LowerLeft")[1] - eps && pos[1] < getParam<std::vector<double>>("Grid.UpperRight")[1] + eps) { //gridgeometry->bBoxMax etc? etc?
+                if (pos[0] > getParam<std::vector<double>>("Grid.LowerLeft")[0] - eps && pos[0] < getParam<std::vector<double>>("Grid.UpperRight")[0] + eps) {
                     coupledScvfIndices.push_back(scvf.index());
                     for (const auto p : pos)
                         coords.push_back(p);
@@ -163,11 +160,14 @@ int main(int argc, char** argv)
         }
     }
 
+
+    std::cout << coupledScvfIndices.size() << std::endl;
+    
     //initialize preCICE
     auto numberOfPoints = coords.size()/dim;
     const double preciceDt = couplingInterface.setMeshAndInitialize(
         meshName, numberOfPoints, coords);
-    couplingInterface.createIndexMapping(coupledScvfIndices);
+    couplingInterface.createIndexMapping(coupledScvfIndices); 
 
     //coupling data
     std::list<std::string> readDataNames = {"k_00", "k_01", "k_10", "k_11", "porosity"};
@@ -178,16 +178,16 @@ int main(int argc, char** argv)
     std::string writeDataName = "temperature";
     int temperatureID = couplingInterface.announceScalarQuantity(writeDataName);
 
-    //TODO not sure if this is needed/correct
     std::vector<double> poroData;
     std::vector<double> k_00;
     std::vector<double> k_01;
     std::vector<double> k_10;
     std::vector<double> k_11;
+    std::vector<double> temperatures;
     std::map<std::string, std::vector<double>> conductivityData {{"k_00", k_00}, {"k_01", k_01}, {"k_10", k_10}, {"k_11", k_11}};
 
-    problem->updatePreciceDataIds();
-
+    problem->updatePreciceDataIds(readDataIDs, temperatureID);
+ 
     // get some time loop parameters
     using Scalar = GetPropType<TypeTag, Properties::Scalar>;
     const auto tEnd = getParam<Scalar>("TimeLoop.TEnd");
@@ -212,9 +212,13 @@ int main(int argc, char** argv)
     IOFields::initOutputModule(vtkWriter); // Add model specific output fields
     vtkWriter.addField(problem->getExactTemperature(), "temperatureExact");
     vtkWriter.write(0.0); //restart time = 0
-
-    //initialize coupling data
-    couplingInterface.writeQuantityVector(temperatureID, problem->getExactTemperature());
+    
+    //initialize coupling data TODO
+    for (const auto &ScvfIndex : coupledScvfIndices) {
+        temperatures.push_back(couplingInterface.getScalarQuantityOnFace(temperatureID, ScvfIndex)); 
+    }
+    
+    couplingInterface.writeQuantityVector(temperatureID, temperatures);
     if (couplingInterface.hasToWriteInitialData()){
         couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);
         couplingInterface.announceInitialDataWritten();
@@ -247,15 +251,20 @@ int main(int argc, char** argv)
             couplingInterface.announceIterationCheckpointWritten();
         }
 
-        //Read porosity and apply TODO write into dumux
+        //Read porosity and apply write into dumux TODO check
         couplingInterface.readQuantityFromOtherSolver(readDataIDs["porosity"], QuantityType::Scalar);
         poroData = couplingInterface.getQuantityVector(readDataIDs["porosity"]);
+        for(std::size_t i = 0; i < coupledScvfIndices.size(); ++i){
+            couplingInterface.writeScalarQuantityOnFace(readDataIDs["porosity"], coupledScvfIndices[i], poroData[i]);
+        }
 
-
-        //Read conductivity and apply TODO write into dumux
+        //Read conductivity and apply write into dumux TODO check
         for (auto iter = conductivityData.begin(); iter != conductivityData.end(); iter++){
             couplingInterface.readQuantityFromOtherSolver(readDataIDs[iter->first], QuantityType::Scalar);
             conductivityData[iter->first] = couplingInterface.getQuantityVector(readDataIDs[iter->first]);
+            for(std::size_t i = 0; i < coupledScvfIndices.size(); ++i){
+                couplingInterface.writeScalarQuantityOnFace(readDataIDs[iter->first], coupledScvfIndices[i], conductivityData[iter->first][i]);
+            }
         }
 
         // linearize & solve
@@ -263,7 +272,10 @@ int main(int argc, char** argv)
 
         // compute the new analytical temperature field for the output
         problem->updateExactTemperature(x, timeLoop->time()+timeLoop->timeStepSize());
-        couplingInterface.writeQuantityVector(temperatureID, problem->getExactTemperature());
+        for(std::size_t i = 0; i < coupledScvfIndices.size(); ++i){
+            temperatures[i] = couplingInterface.getScalarQuantityOnFace(temperatureID, coupledScvfIndices[i]); 
+        }
+        couplingInterface.writeQuantityVector(temperatureID, temperatures);
         couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);
 
         // make the new solution the old solution
@@ -286,7 +298,7 @@ int main(int argc, char** argv)
 
         //advance precice
         const double preciceDt = couplingInterface.advance(dt);
-        dt = std::min(preciceDt, nonLinearSolver.suggestTimeStepSize(timeLoop->timeStepSize()))
+        dt = std::min(preciceDt, nonLinearSolver.suggestTimeStepSize(timeLoop->timeStepSize()));
 
         // set new dt as suggested by the newton solver or by precice
         timeLoop->setTimeStepSize(dt);

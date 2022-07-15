@@ -93,8 +93,8 @@ public:
         FluidSystem::init();
 
         name_ = getParam<std::string>("Problem.Name");
-        temperatureHigh_ = 300.0;
-        temperatureExact_.resize(gridGeometry->numDofs());
+        temperatureExact_.resize(gridGeometry->numDofs()); //TODO is this correct?
+
     }
 
     //! Get the analytical temperature
@@ -125,7 +125,7 @@ public:
 
         const auto porosity = this->spatialParams().porosity(someElement, someScv, someElemSol);
         const auto densityW = volVars.density();
-        const auto heatCapacityW = IapwsH2O::liquidHeatCapacity(someInitSol[temperatureIdx], someInitSol[pressureIdx]);
+        const auto heatCapacityW = IapwsH2O::liquidHeatCapacity(someInitSol[temperatureIdx], someInitSol[pressureIdx]); //TODO H20 :(
         const auto densityS = volVars.solidDensity();
         const auto heatCapacityS = volVars.solidHeatCapacity();
         const auto storage = densityW*heatCapacityW*porosity + densityS*heatCapacityS*(1 - porosity);
@@ -142,11 +142,19 @@ public:
                const auto& globalPos = scv.dofPosition();
                using std::erf;
                using std::sqrt;
-               temperatureExact_[globalIdx] = temperatureHigh_ + (someInitSol[temperatureIdx] - temperatureHigh_)
-                                              *erf(0.5*sqrt(globalPos[0]*globalPos[0]*storage/time/effectiveThermalConductivity));
+               //TODO temperatureExact_[globalIdx] = temperatureHigh_ + (someInitSol[temperatureIdx] - temperatureHigh_)
+               //                               *erf(0.5*sqrt(globalPos[0]*globalPos[0]*storage/time/effectiveThermalConductivity));
 
             }
         }
+    }
+
+    void updatePreciceDataIds(std::map<std::string,int> readDataIDs, int temperatureID)
+    {
+        temperatureId_ = temperatureID;
+        porosityId_ = readDataIDs["porosity"];
+        //TODO conductivityID
+        dataIdsWereSet_ = true;
     }
 
     /*!
@@ -177,7 +185,7 @@ public:
      * \param globalPos The position for which the bc type should be evaluated
      */
     BoundaryTypes boundaryTypesAtPos(const GlobalPosition &globalPos) const
-    {
+    {   //TODO ??
         BoundaryTypes bcTypes;
 
         if(globalPos[0] < eps_ || globalPos[0] > this->gridGeometry().bBoxMax()[0] - eps_)
@@ -196,10 +204,12 @@ public:
      * For this method, the \a values parameter stores primary variables.
      */
     PrimaryVariables dirichletAtPos(const GlobalPosition &globalPos) const
-    {
+    {   //TODO currently hardcoded
         PrimaryVariables priVars(initial_());
-        if (globalPos[0] < eps_)
-            priVars[temperatureIdx] = temperatureHigh_;
+        if (globalPos[1] < eps_)
+            priVars[temperatureIdx] = getParam<Scalar>("BoundaryConditions.BcBottom");
+        if (globalPos[1] > this->gridGeometry().bBoxMax()[1] - eps_)
+            priVars[temperatureIdx] = getParam<Scalar>("BoundaryConditions.BcTop");
         return priVars;
     }
 
@@ -233,14 +243,20 @@ private:
     {
         PrimaryVariables priVars(0.0);
         priVars[pressureIdx] = 1.0e5;
-        priVars[temperatureIdx] = 290.0;
+        priVars[temperatureIdx] = getParam<Scalar>("InitialConditions.Temperature");
+        //TODO priVars[porosityIdx] = getParam<Scalar>("InitialConditions.Phi");
+        //TODO conduction
         return priVars;
     }
 
-    Scalar temperatureHigh_;
+    //Scalar temperatureHigh_;
     static constexpr Scalar eps_ = 1e-6;
     std::string name_;
     std::vector<Scalar> temperatureExact_;
+    size_t temperatureId_;
+    size_t porosityId_;
+    //size_t conductivity TODO
+    bool dataIdsWereSet_;
 };
 
 } // end namespace Dumux

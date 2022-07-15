@@ -1,8 +1,8 @@
 [Component]
-SolidDensity = 2.0 #RhoG
-SolidThermalConductivity = 1.0 # k
-LiquidDensity = 1.0 #RhoS
-LiquidThermalConductivity = 1.0 #k
+SolidDensity = 1.0 #rho_s
+SolidThermalConductivity = 1.0 # k_s
+LiquidDensity = 2.0 #rho_g
+LiquidThermalConductivity = 1.0 #k_g
 
 [Grid]
 LowerLeft = 0 0
@@ -15,7 +15,7 @@ TOutput = 0.1
 
 [Problem]
 Name = macro-heat
-EnableGravity = false #confirm
+EnableGravity = false
 
 [BoundaryConditions]
 BcTypeLeft = neumann
@@ -25,7 +25,7 @@ BcTypeBottom = dirichlet
 BcLeft = 0
 BcRight = 0
 BcTop = 273
-BcBootom = 400
+BcBottom = 400
 
 [InitialConditions]
 Temperature = 273

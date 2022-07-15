@@ -61,15 +61,41 @@ public:
      * \param globalPos The global position
      */
     PermeabilityType permeabilityAtPos(const GlobalPosition& globalPos) const
-    { return 1e-10; }
+    { return 1e-10; } //TODO Does this also vary? 
 
     /*!
      * \brief Defines the porosity \f$\mathrm{[-]}\f$.
      *
      * \param globalPos The global position
      */
-    Scalar porosityAtPos(const GlobalPosition& globalPos) const
+    // #### Porosity distribution
+    // This function is used to define the porosity distribution in the
+    // computational domain. Here, we use a constant porosity of 0.4.
+    //TODO
+
+    Scalar porosityAtPos(const GlobalPosition& globalPos) const 
     { return 0.4; }
+
+    //TODO
+    Scalar temperatureAtPos(const GlobalPosition& globalPos) const
+    {
+        static const Scalar defaultTemperature = [] ()
+        {
+            Scalar defaultTemp = 293.15; // 20°C
+            if (!hasParam("SpatialParams.Temperature"))
+            {
+                std::cout << " -- Using the default temperature of " << defaultTemp << " in the entire domain. "
+                          << "Overload temperatureAtPos() in your spatial params class to define a custom temperature field."
+                          << "Or provide the preferred domain temperature via the SpatialParams.Temperature parameter."
+                          << std::endl;
+            }
+            const Scalar temperature = getParam<Scalar>("SpatialParams.Temperature", defaultTemp);
+            return temperature;
+        } ();
+
+        return defaultTemperature;
+    }
+
 };
 
 } // end namespace Dumux
