@@ -79,9 +79,9 @@ public:
     template<class ElementSolution>
     Scalar porosity(const Element& element, 
                     const SubControlVolume& scv, 
-                    const ElementSolution& elemSol) const // instead of const Element& element, const SubControlVolume& scv, const ElementSolution& elemSol) const
+                    const ElementSolution& elemSol) const
     {   
-        const int elemIdx = scv.elementIndex();  //TODO check whether this is correct index
+        const int elemIdx = scv.elementIndex(); 
         return couplingInterface_.getScalarQuantityOnFace(couplingInterface_.getIdFromName("porosity"), elemIdx); 
     } 
 
