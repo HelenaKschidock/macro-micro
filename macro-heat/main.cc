@@ -85,7 +85,7 @@ int main(int argc, char** argv)
     using namespace Dumux::Precice; //for QuantityType 
 
     // define the type tag for this problem
-    using TypeTag = Properties::TTag::OnePNIConductionCCMpfa;
+    using TypeTag = Properties::TTag::OnePNIConductionCCTpfa; //using TypeTag = Properties::TTag::TYPETAG; : TYPETAG is a CMakeLists.txt input
 
     // initialize MPI, finalize is done automatically on exit
     const auto& mpiHelper = Dune::MPIHelper::instance(argc, argv);
@@ -141,18 +141,24 @@ int main(int argc, char** argv)
     //get mesh coordinates *TODO: check (from dumux-precice) - does this also work for CC approach?
     std::string meshName = "macro-mesh";
     std::vector<double> coords;  //( dim * vertexSize );
-    std::vector<int> coupledScvfIndices;
+    std::vector<int> coupledScvIndices;
 
     for (const auto &element : elements(leafGridView)) {
+        static constexpr auto eps = 1e-7;
         auto fvGeometry = localView(*gridGeometry);
         fvGeometry.bindElement(element);
-
+        int i = 0; 
+        //Why does const int elemIdx = element.index() not work???
         for (const auto &scvf : scvfs(fvGeometry)) {
-            static constexpr auto eps = 1e-7;
+            //there should only be one scvf per element? check this
+            //std::cout << i << std::endl;
+            
             const auto &pos = scvf.center();
             if (pos[1] > getParam<std::vector<double>>("Grid.LowerLeft")[1] - eps && pos[1] < getParam<std::vector<double>>("Grid.UpperRight")[1] + eps) { //gridgeometry->bBoxMax etc? etc?
                 if (pos[0] > getParam<std::vector<double>>("Grid.LowerLeft")[0] - eps && pos[0] < getParam<std::vector<double>>("Grid.UpperRight")[0] + eps) {
-                    coupledScvfIndices.push_back(scvf.index());
+                    coupledScvIndices.push_back(scvf.index());
+                    //TODO check whether scvf.insideScvIdx() is equal to element.index
+                    //std::cout << "scvf index = " << scvf.index() << ", inside Scv index = " << scvf.insideScvIdx() << std::endl;
                     for (const auto p : pos)
                         coords.push_back(p);
                 }
@@ -161,13 +167,13 @@ int main(int argc, char** argv)
     }
 
 
-    std::cout << coupledScvfIndices.size() << std::endl;
+    std::cout << coupledScvIndices.size() << std::endl;
     
     //initialize preCICE
     auto numberOfPoints = coords.size()/dim;
     const double preciceDt = couplingInterface.setMeshAndInitialize(
         meshName, numberOfPoints, coords);
-    couplingInterface.createIndexMapping(coupledScvfIndices); 
+    couplingInterface.createIndexMapping(coupledScvIndices); 
 
     //coupling data
     std::list<std::string> readDataNames = {"k_00", "k_01", "k_10", "k_11", "porosity"};
@@ -214,8 +220,8 @@ int main(int argc, char** argv)
     vtkWriter.write(0.0); //restart time = 0
     
     //initialize coupling data TODO
-    for (const auto &ScvfIndex : coupledScvfIndices) {
-        temperatures.push_back(couplingInterface.getScalarQuantityOnFace(temperatureID, ScvfIndex)); 
+    for (const auto &ScvIndex : coupledScvIndices) {
+        temperatures.push_back(couplingInterface.getScalarQuantityOnFace(temperatureID, ScvIndex)); 
     }
     
     couplingInterface.writeQuantityVector(temperatureID, temperatures);
@@ -254,7 +260,17 @@ int main(int argc, char** argv)
         //Read porosity and TODO apply write into dumux TODO check
         couplingInterface.readQuantityFromOtherSolver(readDataIDs["porosity"], QuantityType::Scalar);
         poroData = couplingInterface.getQuantityVector(readDataIDs["porosity"]);
-
+        
+        for (const auto &element : elements(leafGridView)) {
+            static constexpr auto eps = 1e-7;
+            auto fvGeometry = localView(*gridGeometry);
+            fvGeometry.bindElement(element);
+            int i = 0; 
+            //Why does const int elemIdx = element.index() not work???
+            for (const auto &scvf : scvfs(fvGeometry)) {
+                couplingInterface.writeScalarQuantityOnFace(readDataIDs["porosity"], scvf.index(), poroData[scvf.index()]); //TODO poroData[scvf.index()] has to fit!!
+            }
+        }
 
         //Read conductivity and TODO apply write into dumux TODO check
         for (auto iter = conductivityData.begin(); iter != conductivityData.end(); iter++){

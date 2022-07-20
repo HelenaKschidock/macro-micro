@@ -1,0 +1,100 @@
+#General dumux-heat#
+* confirm that dumux-heat is simulating a porous medium problem in a similar
+	 manner to our nutils example.
+-> dumux-heat: "Test for the OnePModel (one-phase) in combination with the
+ NI (non-isothermal) model for a conduction problem. The simulation domain is
+ a tube with an elevated temperature on the left hand side."
+-> alternatives in dumux porous-medium-flow, fully implicit:
+     1phase or 1phase2components or 2p/2p1c/2p2c
+=> loking at dumux_course_intro.pdf: 1p1c is indeed correct.
+* is temperatureExact only a something that is calculated afterwards/how to include the initial condition for T
+* todo output every 0.1
+* todo read porosity and apply, read conductivity and apply
+* in python/nutils (verify): solver, read quantity, solver? in dumux: only 1 solver (there is a linear solver within the nonlinear solver idk)
+* is porosity and conductivity ever used for solving process or only to output exact temperature afterwards?
+* do the functions in spatialparams.hh (e.g. porosityatpos) get used in solving process?
+* do functions atPos refer to cell center and ergo cell? how does this work? 
+* which discretization am i actually using
+* is there maybe a way to use permeability instead of heat conductivity
+* onpni conduction uses porosity-weighted thermal conductivity constitutive law (Thermal Conductivity Average).
+* doesn't look like there are a) conductivity tensors or b) local conductivity values in dumux
+* am I using Box method? is Alex's ff-pm using Staggered grid?
+-> CCMPFA (Cell Centered)
+* elements? subcontrolvolumes? subcontrolvolumefaces? -> see dumux_course_intro 
+* how to get index corresponding to a certain element
+* getScalarQuantityOnFace! see ffproblem-reversed.hh     
+	PrimaryVariables dirichlet(const Element &element,
+                               const SubControlVolumeFace &scvf) const
+    {
+        PrimaryVariables values(0.0);
+        values = initialAtPos(scvf.center());
+
+        const auto faceId = scvf.index();
+        if (couplingInterface_.isCoupledEntity(faceId)) {
+            values[Indices::velocityYIdx] =
+                couplingInterface_.getScalarQuantityOnFace(velocityId_, faceId);
+        }
+
+        return values;
+    }
+	-> here used for boundary. to what extent faces = boundaries?
+* TODO: updateExactTemperature etc.
+* 1p model solves for pressure.
+-> how to get temperature from pressure
+-> is there a way to solve for temperature directly?
+-> dumux 1p model (as used in dumux-heat) solves a Darcy problem for the pressure and calculates the temperature at the end. this seems like very different
+ from solving the transient heat conduction equation as is done in the macro-heat python case by Ishaan. How would RB work etc?
+ * should maybe use something else than scvf.center() depending on what subcontrolvolumes actually are. https://dumux.org/docs/doxygen/releases/3.2/a04032.html#aaed3dd4497da199d77ef5ab2f75e79bd
+* linked to this: is each cell divided into 4 subcontrolvolumes?
+* H2O occurs but we are not using H2O 
+* Does this make any sense? I.e. 
+    for (const auto &ScvfIndex : coupledScvfIndices) {
+        temperatures.push_back(couplingInterface.getScalarQuantityOnFace(temperatureID, ScvfIndex)); 
+    }
+    -> Do you put in temperatureID and one SCvf Index?
+    -> TODO: write temperatures to face first.
+    -> is dataID e.g. temperatureID or is it something else?
+* Where is stuff actually written to via writeScalarQuantityToFace
+* is getParam<std::vector<double>>("Grid.UpperRight")[0] == gridGeometry->bBoxMax()[1] ?
+* how to actually calculate the temperature
+* Does the permeability also vary? 
+* AH actually getScalarQuantityOnFace and writeScalarQuantityToFace also only write/read stuff to/from the dataVectors_ in couplingadapter, only indexwise.
+-> no need to do these 
+        /*for(std::size_t i = 0; i < coupledScvfIndices.size(); ++i){
+            couplingInterface.writeScalarQuantityOnFace(readDataIDs["porosity"], coupledScvfIndices[i], poroData[i]);
+        }*/ //this is already done by 
+* maybe there is a similar way to overload the local heat conductivity, or maybe just adapt ExactTemperature
+* in main_ff-reversed: Um coords zu erstellen: heißt auf jedes subcontrolvolumefaces = 1 Zelle?
+    for (const auto &element : elements(freeFlowGridView)) {
+        ...
+        for (const auto &scvf : scvfs(fvGeometry)) {
+
+        
+
+'''''''''''''''''''''''''''''''' APPROACH ''''''''''''''''''''''''''''''
+* How about building the problem first without needing to pass k_01 etc? Simply use the existing Thermal Conductivity average and pass the porosity
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+*****!!! how to translate GlobalPosition to index of my fields
+	-> in order to modify porosityAtPos
+* todo set correct boundary conditions
+* todo set correct init
+#Dumux questions (main_ff.cc)
+*the whole //GET mesh coordinates code - need explanation.
+-> what is coupledScvfIndices
+-> what is happening here? 
+* if (couplingInterface.hastoReadIterationCheckpoint()) vs else write vtk ?? explain pls
+* to what extent should dt suggested by newton solver play a role
+#params.input:#
+* with or without gravity?
+* all the BC/InitialCondition parameters.
+* k=1.0 --- SolidThermalConductivity or LiquidThermalConductivity or both?
+* SolidHeatCapacity: parameter in dumux - how to calculate? need liquid also? 
+	-> has it been c in nutils model and set to 1?
+* params that will need to be called manually (that have been added):
+	 all InitialConditions all BoundaryConditions TOutput ...
+* are added params such as LiquidDensity actually being read and used?
+* to what extent are we distinguishing between the two materials on the macro level
+# nutils #
+* whats up with temperatures = np.arange(273.0, 583.0, 20.0)
+* DuMux only seems to be interested in scalar conductivity bzw k_g, k_s (not thermal conductivity tensor).
+* do k_s and k_g change over time?

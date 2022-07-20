@@ -50,6 +50,9 @@ class OnePNISpatialParams
     using Element = typename GridView::template Codim<0>::Entity;
     using GlobalPosition = typename Element::Geometry::GlobalCoordinate;
 
+    using FVElementGeometry = typename GridGeometry::LocalView;
+    using SubControlVolume = typename FVElementGeometry::SubControlVolume;
+
 public:
     // export permeability type
     using PermeabilityType = Scalar;
@@ -73,14 +76,14 @@ public:
      * \param globalPos The global position
      */
     // #### Porosity distribution
-    // This function is used to define the porosity distribution in the
-    // computational domain. Here, we use a constant porosity of 0.4.
-    //TODO
-
-    Scalar porosityAtPos(const GlobalPosition& globalPos) const 
-    //TODO add checks
-    {   return couplingInterface_.getScalarQuantityOnFace(couplingInterface_.getIdFromName("porosity"), faceID); //TODO faceid
-    }
+    template<class ElementSolution>
+    Scalar porosity(const Element& element, 
+                    const SubControlVolume& scv, 
+                    const ElementSolution& elemSol) const // instead of const Element& element, const SubControlVolume& scv, const ElementSolution& elemSol) const
+    {   
+        const int elemIdx = scv.elementIndex();  //TODO check whether this is correct index
+        return couplingInterface_.getScalarQuantityOnFace(couplingInterface_.getIdFromName("porosity"), elemIdx); 
+    } 
 
     //TODO
     Scalar temperatureAtPos(const GlobalPosition& globalPos) const //TODO (this is the default.)
@@ -98,7 +101,6 @@ public:
             const Scalar temperature = getParam<Scalar>("SpatialParams.Temperature", defaultTemp);
             return temperature;
         } ();
-
         return defaultTemperature;
     }
 private:
