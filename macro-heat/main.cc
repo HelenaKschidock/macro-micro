@@ -115,7 +115,7 @@ int main(int argc, char** argv)
 
     // the problem (initial and boundary conditions)
     using Problem = GetPropType<TypeTag, Properties::Problem>;
-    const std::string paramGroup = GridGeometry::discMethod == DiscretizationMethods::ccmpfa ? "MpfaTest" : "";
+    const std::string paramGroup = GridGeometry::discMethod == DiscretizationMethods::ccmpfa ? "MpfaTest" : ""; //what does this do? (checks if Mpfa)
     auto problem = std::make_shared<Problem>(gridGeometry, paramGroup);
 
     // Initialize preCICE.Tell preCICE about:
@@ -133,47 +133,33 @@ int main(int argc, char** argv)
 
     //verify that dimensions match
     const int dim = couplingInterface.getDimensions();
-    std::cout << dim << "  " << int(leafGridView.dimension) << std::endl;
+    std::cout << "coupling Dims = " << dim << " , leafgrid dims = " << int(leafGridView.dimension) << std::endl;
     if (dim != int(leafGridView.dimension)){
         DUNE_THROW(Dune::InvalidStateException, "Dimensions do not match");
     }
 
-    //get mesh coordinates *TODO: check (from dumux-precice) - does this also work for CC approach?
+    //get mesh coordinates
     std::string meshName = "macro-mesh";
     std::vector<double> coords;  //( dim * vertexSize );
-    std::vector<int> coupledScvIndices;
-
+    std::vector<int> coupledElementIdxs;
     for (const auto &element : elements(leafGridView)) {
-        static constexpr auto eps = 1e-7;
-        auto fvGeometry = localView(*gridGeometry);
+        auto fvGeometry = localView(*gridGeometry); 
         fvGeometry.bindElement(element);
-        int i = 0; 
-        //Why does const int elemIdx = element.index() not work???
-        for (const auto &scvf : scvfs(fvGeometry)) {
-            //there should only be one scvf per element? check this
-            //std::cout << i << std::endl;
-            
-            const auto &pos = scvf.center();
-            if (pos[1] > getParam<std::vector<double>>("Grid.LowerLeft")[1] - eps && pos[1] < getParam<std::vector<double>>("Grid.UpperRight")[1] + eps) { //gridgeometry->bBoxMax etc? etc?
-                if (pos[0] > getParam<std::vector<double>>("Grid.LowerLeft")[0] - eps && pos[0] < getParam<std::vector<double>>("Grid.UpperRight")[0] + eps) {
-                    coupledScvIndices.push_back(scvf.index());
-                    //TODO check whether scvf.insideScvIdx() is equal to element.index
-                    //std::cout << "scvf index = " << scvf.index() << ", inside Scv index = " << scvf.insideScvIdx() << std::endl;
-                    for (const auto p : pos)
-                        coords.push_back(p);
-                }
-            }
+        for (const auto &scv : scvs(fvGeometry)){ //only one SCV per element for CCTpfa (but 4 scvfs)
+            coupledElementIdxs.push_back(scv.elementIndex());
+            const auto &pos = scv.center();
+            for (const auto p : pos)
+                coords.push_back(p);
         }
     }
 
-
-    std::cout << coupledScvIndices.size() << std::endl;
+    std::cout << "coupledElementIdxs.size() = " << coupledElementIdxs.size() << std::endl;
     
     //initialize preCICE
     auto numberOfPoints = coords.size()/dim;
     const double preciceDt = couplingInterface.setMeshAndInitialize(
         meshName, numberOfPoints, coords);
-    couplingInterface.createIndexMapping(coupledScvIndices); 
+    couplingInterface.createIndexMapping(coupledElementIdxs); 
 
     //coupling data
     std::list<std::string> readDataNames = {"k_00", "k_01", "k_10", "k_11", "porosity"};
@@ -220,8 +206,8 @@ int main(int argc, char** argv)
     vtkWriter.write(0.0); //restart time = 0
     
     //initialize coupling data TODO
-    for (const auto &ScvIndex : coupledScvIndices) {
-        temperatures.push_back(couplingInterface.getScalarQuantityOnFace(temperatureID, ScvIndex)); 
+    for (const auto &elementIdx : coupledElementIdxs) {
+        temperatures.push_back(couplingInterface.getScalarQuantityOnFace(temperatureID, elementIdx)); 
     }
     
     couplingInterface.writeQuantityVector(temperatureID, temperatures);
@@ -262,13 +248,10 @@ int main(int argc, char** argv)
         poroData = couplingInterface.getQuantityVector(readDataIDs["porosity"]);
         
         for (const auto &element : elements(leafGridView)) {
-            static constexpr auto eps = 1e-7;
-            auto fvGeometry = localView(*gridGeometry);
+            auto fvGeometry = localView(*gridGeometry); 
             fvGeometry.bindElement(element);
-            int i = 0; 
-            //Why does const int elemIdx = element.index() not work???
-            for (const auto &scvf : scvfs(fvGeometry)) {
-                couplingInterface.writeScalarQuantityOnFace(readDataIDs["porosity"], scvf.index(), poroData[scvf.index()]); //TODO poroData[scvf.index()] has to fit!!
+            for (const auto &scv : scvs(fvGeometry)){
+                couplingInterface.writeScalarQuantityOnFace(readDataIDs["porosity"], scv.elementIndex(), poroData[scv.elementIndex()]);
             }
         }
 
