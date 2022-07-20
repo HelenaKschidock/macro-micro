@@ -44,7 +44,7 @@
       <read-data name="temperature" mesh="macro-mesh"/>
     </participant>
 
-    <m2n:sockets from="Micro-Manager" to="Macro-heat"/>
+    <m2n:sockets from="Micro-Manager" to="Macro-heat" exchange-directory="../"/>
 
     <coupling-scheme:parallel-implicit>
        <participants first="Macro-heat" second="Micro-Manager"/>
