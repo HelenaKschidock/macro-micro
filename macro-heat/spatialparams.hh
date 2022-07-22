@@ -42,7 +42,6 @@ class OnePNISpatialParams
                                          OnePNISpatialParams<GridGeometry, Scalar>>
 {
     using GridView = typename GridGeometry::GridView;
-
     using ThisType = OnePNISpatialParams<GridGeometry, Scalar>;
     using ParentType = FVPorousMediumFlowSpatialParamsOneP<GridGeometry, Scalar, ThisType>;
 
@@ -75,7 +74,7 @@ public:
      *
      * \param globalPos The global position
      */
-    // #### Porosity distribution
+    
     template<class ElementSolution>
     Scalar porosity(const Element& element, 
                     const SubControlVolume& scv, 
@@ -85,9 +84,24 @@ public:
         return couplingInterface_.getScalarQuantityOnFace(couplingInterface_.getIdFromName("porosity"), elemIdx); 
     } 
 
-    //TODO
-    Scalar temperatureAtPos(const GlobalPosition& globalPos) const //TODO (this is the default.)
+    /*!
+     * \brief Return the temperature in the given sub-control volume.
+     */
+    template<class ElementSolution>
+    Scalar temperature(const Element& element,
+                       const SubControlVolume& scv,
+                       const ElementSolution& elemSol) const
     {
+        //TODO implement
+        return 0.0;
+    }
+
+    /*!
+     * \brief Return the temperature in the domain at the given position
+     * \param globalPos The position in global coordinates where the temperature should be specified.
+     */
+    Scalar temperatureAtPos(const GlobalPosition& globalPos) const
+    {   std::cout << "THIS IS SUPPOSED TO NEVER BE CALLED. FUCK." << std::endl;
         static const Scalar defaultTemperature = [] ()
         {
             Scalar defaultTemp = 293.15; // 20°C
@@ -95,12 +109,13 @@ public:
             {
                 std::cout << " -- Using the default temperature of " << defaultTemp << " in the entire domain. "
                           << "Overload temperatureAtPos() in your spatial params class to define a custom temperature field."
-                          << "Or provide the preferred domain temperature via the SpatialParams.Temperature parameter."
+                          << "Or provide the preferred domain temperature via the Spat>ialParams.Temperature parameter."
                           << std::endl;
             }
             const Scalar temperature = getParam<Scalar>("SpatialParams.Temperature", defaultTemp);
             return temperature;
         } ();
+
         return defaultTemperature;
     }
 private:

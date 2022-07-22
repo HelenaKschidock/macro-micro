@@ -93,15 +93,16 @@ public:
         FluidSystem::init();
 
         name_ = getParam<std::string>("Problem.Name");
-        temperatureExact_.resize(gridGeometry->numDofs()); //TODO is this correct?
-
+        temperatureExact_.resize(gridGeometry->numDofs()); 
+        temperatureHigh_ = getParam<Scalar>("BoundaryConditions.BcBottom"); //original: 300.0; //TODO what is this shit.
     }
 
+    /*
     //! Get the analytical temperature
     const std::vector<Scalar>& getExactTemperature()
     {
         return temperatureExact_;
-    }
+    }*/
 
     /*!
      * \brief Update the analytical temperature
@@ -110,26 +111,9 @@ public:
          T =T_{high} + (T_{init} - T_{high})erf \left(0.5\sqrt{\frac{x^2 S_{total}}{t \lambda_{eff}}}\right)
       \f]
      */
-    void updateExactTemperature(const SolutionVector& curSol, Scalar time)
+    /*
+    void updateExactTemperature(const SolutionVector& curSol, Scalar time) //TODO modify equation 
     {
-        const auto someElement = *(elements(this->gridGeometry().gridView()).begin());
-
-        auto someElemSol = elementSolution(someElement, curSol, this->gridGeometry());
-        const auto someInitSol = initialAtPos(someElement.geometry().center());
-
-        const auto someFvGeometry = localView(this->gridGeometry()).bindElement(someElement);
-        const auto someScv = *(scvs(someFvGeometry).begin());
-
-        VolumeVariables volVars;
-        volVars.update(someElemSol, *this, someElement, someScv);
-
-        const auto porosity = this->spatialParams().porosity(someElement, someScv, someElemSol);
-        const auto densityW = volVars.density();
-        const auto heatCapacityW = IapwsH2O::liquidHeatCapacity(someInitSol[temperatureIdx], someInitSol[pressureIdx]); //TODO H20 :(
-        const auto densityS = volVars.solidDensity();
-        const auto heatCapacityS = volVars.solidHeatCapacity();
-        const auto storage = densityW*heatCapacityW*porosity + densityS*heatCapacityS*(1 - porosity);
-        const auto effectiveThermalConductivity = ThermalConductivityModel::effectiveThermalConductivity(volVars);
         using std::max;
         time = max(time, 1e-10);
         auto fvGeometry = localView(this->gridGeometry());
@@ -137,19 +121,32 @@ public:
         {
             fvGeometry.bindElement(element);
             for (auto&& scv : scvs(fvGeometry))
-            {
-               auto globalIdx = scv.dofIndex();
-               const auto& globalPos = scv.dofPosition();
-               using std::erf;
-               using std::sqrt;
-               //TODO temperatureExact_[globalIdx] = temperatureHigh_ + (someInitSol[temperatureIdx] - temperatureHigh_)
-               //                               *erf(0.5*sqrt(globalPos[0]*globalPos[0]*storage/time/effectiveThermalConductivity));
+            {  
+                auto elemSol = elementSolution(element, curSol, this->gridGeometry());  
+                const auto initSol = initialAtPos(element.geometry().center());
+                VolumeVariables volVars;
+                volVars.update(elemSol, *this, element, scv); 
+                const auto porosity = this->spatialParams().porosity(element, scv, elemSol);
+                std::cout << "Porosity" << porosity << std::endl;
+                const auto densityW = volVars.density();
+                const auto heatCapacityW = IapwsH2O::liquidHeatCapacity(initSol[temperatureIdx], initSol[pressureIdx]); //TODO H20 :(
+                const auto densityS = volVars.solidDensity();
+                const auto heatCapacityS = volVars.solidHeatCapacity();
+                const auto storage = densityW*heatCapacityW*porosity + densityS*heatCapacityS*(1 - porosity); 
+                const auto effectiveThermalConductivity = ThermalConductivityModel::effectiveThermalConductivity(volVars);
+                std::cout << "effectiveThermalConductivity" << effectiveThermalConductivity << std::endl;
+                auto globalIdx = scv.dofIndex();
+                const auto& globalPos = scv.dofPosition();
+                using std::erf;
+                using std::sqrt;
+                temperatureExact_[globalIdx] = temperatureHigh_ + (initSol[temperatureIdx] - temperatureHigh_)
+                                                *erf(0.5*sqrt(globalPos[0]*globalPos[0]*storage/time/effectiveThermalConductivity));
 
             }
         }
-    }
+    }*/
 
-    void updatePreciceDataIds(std::map<std::string,int> readDataIDs, int temperatureID)
+    void updatePreciceDataIds(std::map<std::string,int> readDataIDs, int temperatureID) //or do i overwrite temperatureIdx here?
     {
         temperatureId_ = temperatureID;
         porosityId_ = readDataIDs["porosity"];
@@ -185,13 +182,12 @@ public:
      * \param globalPos The position for which the bc type should be evaluated
      */
     BoundaryTypes boundaryTypesAtPos(const GlobalPosition &globalPos) const
-    {   //TODO ??
-        BoundaryTypes bcTypes;
+    {   BoundaryTypes bcTypes;
 
-        if(globalPos[0] < eps_ || globalPos[0] > this->gridGeometry().bBoxMax()[0] - eps_)
+        if(globalPos[1] < eps_ || globalPos[1] > this->gridGeometry().bBoxMax()[1] - eps_)
             bcTypes.setAllDirichlet();
         else
-            bcTypes.setAllNeumann();
+            bcTypes.setAllNeumann(); //default is adiabatic
 
         return bcTypes;
     }
@@ -233,7 +229,6 @@ public:
         return initial_();
     }
 
-    // \}
 
 private:
     Dumux::Precice::CouplingAdapter &couplingInterface_;
@@ -242,18 +237,17 @@ private:
     PrimaryVariables initial_() const
     {
         PrimaryVariables priVars(0.0);
-        priVars[pressureIdx] = 1.0e5;
-        priVars[temperatureIdx] = getParam<Scalar>("InitialConditions.Temperature");
-        //TODO priVars[porosityIdx] = getParam<Scalar>("InitialConditions.Phi");
-        //TODO conduction
+        priVars[pressureIdx] = 1.0e5; //TODO
+        priVars[temperatureIdx] = getParam<Scalar>("InitialConditions.Temperature"); //TODO
         return priVars;
     }
 
     //Scalar temperatureHigh_;
+    Scalar temperatureHigh_;
     static constexpr Scalar eps_ = 1e-6;
     std::string name_;
     std::vector<Scalar> temperatureExact_;
-    size_t temperatureId_;
+    size_t temperatureId_; 
     size_t porosityId_;
     //size_t conductivity TODO
     bool dataIdsWereSet_;

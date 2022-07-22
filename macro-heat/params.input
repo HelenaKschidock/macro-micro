@@ -17,6 +17,9 @@ TOutput = 0.1
 [Problem]
 Name = macro-heat
 EnableGravity = false
+OutputInterval = 5 # TODO we want output every 0.1 instead
+DarcyVelocity = 1e-4 # TODO do we want this [m/s] inflow at the left boundary
+
 
 [BoundaryConditions]
 BcTypeLeft = neumann

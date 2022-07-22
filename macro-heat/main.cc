@@ -115,7 +115,7 @@ int main(int argc, char** argv)
 
     // the problem (initial and boundary conditions)
     using Problem = GetPropType<TypeTag, Properties::Problem>;
-    const std::string paramGroup = GridGeometry::discMethod == DiscretizationMethods::ccmpfa ? "MpfaTest" : ""; //what does this do? (checks if Mpfa)
+    const std::string paramGroup = GridGeometry::discMethod == DiscretizationMethods::ccmpfa ? "MpfaTest" : ""; //checks if CCMpfa, here CCTpfa: paramGroup = None
     auto problem = std::make_shared<Problem>(gridGeometry, paramGroup);
 
     // Initialize preCICE.Tell preCICE about:
@@ -178,7 +178,7 @@ int main(int argc, char** argv)
     std::vector<double> temperatures;
     std::map<std::string, std::vector<double>> conductivityData {{"k_00", k_00}, {"k_01", k_01}, {"k_10", k_10}, {"k_11", k_11}};
 
-    problem->updatePreciceDataIds(readDataIDs, temperatureID);
+    problem->updatePreciceDataIds(readDataIDs, temperatureID);    
  
     // get some time loop parameters
     using Scalar = GetPropType<TypeTag, Properties::Scalar>;
@@ -188,10 +188,11 @@ int main(int argc, char** argv)
     // the solution vector
     using SolutionVector = GetPropType<TypeTag, Properties::SolutionVector>;
     SolutionVector x(gridGeometry->numDofs());
-    problem->applyInitialSolution(x);
+    std::cout << x << std::endl;                    //TODO: what is happening here? initialization with 0?
+    problem->applyInitialSolution(x); 
     auto xOld = x;
 
-    // the grid variables
+    // the grid variables                           //TODO what is happening here? does this need to be modified? we only want to write the temperature, porosity, conductivity
     using GridVariables = GetPropType<TypeTag, Properties::GridVariables>;
     auto gridVariables = std::make_shared<GridVariables>(problem, gridGeometry);
     gridVariables->init(x);
@@ -202,11 +203,11 @@ int main(int argc, char** argv)
     using VelocityOutput = GetPropType<TypeTag, Properties::VelocityOutput>;
     vtkWriter.addVelocityOutput(std::make_shared<VelocityOutput>(*gridVariables));
     IOFields::initOutputModule(vtkWriter); // Add model specific output fields
-    vtkWriter.addField(problem->getExactTemperature(), "temperatureExact");
+    //vtkWriter.addField(problem->getExactTemperature(), "temperatureExact");
     vtkWriter.write(0.0); //restart time = 0
     
     //initialize coupling data TODO
-    for (const auto &elementIdx : coupledElementIdxs) {
+    for (const auto &elementIdx : coupledElementIdxs){
         temperatures.push_back(couplingInterface.getScalarQuantityOnFace(temperatureID, elementIdx)); 
     }
     
@@ -236,6 +237,9 @@ int main(int argc, char** argv)
     NewtonSolver nonLinearSolver(assembler, linearSolver);
 
     // time loop
+    std::cout << "Time Loop starts" << std::endl;
+    const auto outputTimeInterval = getParam<Scalar>("TimeLoop.TOutput");
+    auto tOld = timeLoop->time();
     timeLoop->start(); do
     {   // write checkpoint
         if (couplingInterface.hasToWriteIterationCheckpoint()) {
@@ -243,42 +247,37 @@ int main(int argc, char** argv)
             couplingInterface.announceIterationCheckpointWritten();
         }
 
-        //Read porosity and TODO apply write into dumux TODO check
+        //Read porosity
         couplingInterface.readQuantityFromOtherSolver(readDataIDs["porosity"], QuantityType::Scalar);
         poroData = couplingInterface.getQuantityVector(readDataIDs["porosity"]);
         
-        for (const auto &element : elements(leafGridView)) {
-            auto fvGeometry = localView(*gridGeometry); 
-            fvGeometry.bindElement(element);
-            for (const auto &scv : scvs(fvGeometry)){
-                couplingInterface.writeScalarQuantityOnFace(readDataIDs["porosity"], scv.elementIndex(), poroData[scv.elementIndex()]);
-            }
-        }
-
         //Read conductivity and TODO apply write into dumux TODO check
         for (auto iter = conductivityData.begin(); iter != conductivityData.end(); iter++){
             couplingInterface.readQuantityFromOtherSolver(readDataIDs[iter->first], QuantityType::Scalar);
             conductivityData[iter->first] = couplingInterface.getQuantityVector(readDataIDs[iter->first]);
         }
 
+        //write Data to couplingInterface Faces
+        for (const auto &elementIdx : coupledElementIdxs){
+                couplingInterface.writeScalarQuantityOnFace(readDataIDs["porosity"], elementIdx, poroData[elementIdx]);
+                std::cout << "poroData:" << poroData[elementIdx] << std::endl;
+                for (auto iter = conductivityData.begin(); iter != conductivityData.end(); iter++){
+                    couplingInterface.writeScalarQuantityOnFace(readDataIDs[iter->first], elementIdx, conductivityData[iter->first][elementIdx]);
+                }
+        }
+        
+        std::cout << "Solver starts" << std::endl;
         // linearize & solve
         nonLinearSolver.solve(x, *timeLoop);
-
-        // compute the new analytical temperature field for the output
-        problem->updateExactTemperature(x, timeLoop->time()+timeLoop->timeStepSize());
-        //TODO temperatures =...
-        couplingInterface.writeQuantityVector(temperatureID, temperatures);
-        couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);
 
         // make the new solution the old solution
         if (couplingInterface.hasToReadIterationCheckpoint()) {
             //            //Read checkpoint
             //            freeFlowVtkWriter.write(vtkTime);
             //            vtkTime += 1.;
-            x = xOld;
+            xOld = x;
             gridVariables->update(x);
             gridVariables->advanceTimeStep();
-            //freeFlowGridVariables->init(sol);
             couplingInterface.announceIterationCheckpointRead();
         }
 
@@ -288,16 +287,27 @@ int main(int argc, char** argv)
         // report statistics of this time step
         timeLoop->reportTimeStep();
 
+
+        //std::cout << "Update exact temperature" << std::endl;
+        // compute the new analytical temperature field for the output
+        //problem->updateExactTemperature(x, timeLoop->time()+timeLoop->timeStepSize());
+        //temperatures = gridVariables->curGridVolVars()[temperatureID]; //TODO
+        //std::cout << gridVariables->curGridVolVars() << std::endl; //trying to output the solution
+        //temperatures = x[temperatureIDx];
+        couplingInterface.writeQuantityVector(temperatureID, temperatures);
+        couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);
+
         //advance precice
         const double preciceDt = couplingInterface.advance(dt);
         dt = std::min(preciceDt, nonLinearSolver.suggestTimeStepSize(timeLoop->timeStepSize()));
 
         // set new dt as suggested by the newton solver or by precice
         timeLoop->setTimeStepSize(dt);
-
-        //TODO output every 0.1
-        if (timeLoop->timeStepIndex()==0 || timeLoop->timeStepIndex() % vtkOutputInterval == 0 || timeLoop->finished())
+        
+        //TODO output every 0.1. currently does not exactly hit this.
+        if (timeLoop->timeStepIndex()==0 || int(timeLoop->time()/outputTimeInterval) > int(tOld/outputTimeInterval) || timeLoop->finished())
             vtkWriter.write(timeLoop->time());
+        tOld = timeLoop->time();
 
     } while (!timeLoop->finished() && couplingInterface.isCouplingOngoing());
 
