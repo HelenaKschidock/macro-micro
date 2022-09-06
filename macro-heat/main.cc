@@ -188,7 +188,7 @@ int main(int argc, char** argv)
     // the solution vector
     using SolutionVector = GetPropType<TypeTag, Properties::SolutionVector>;
     SolutionVector x(gridGeometry->numDofs());
-    std::cout << x << std::endl;                    //TODO: what is happening here? initialization with 0?
+    std::cout << "x:" << x << std::endl;                    //TODO: what is happening here? initialization with 0?
     problem->applyInitialSolution(x); 
     auto xOld = x;
 
@@ -203,7 +203,6 @@ int main(int argc, char** argv)
     using VelocityOutput = GetPropType<TypeTag, Properties::VelocityOutput>;
     vtkWriter.addVelocityOutput(std::make_shared<VelocityOutput>(*gridVariables));
     IOFields::initOutputModule(vtkWriter); // Add model specific output fields
-    //vtkWriter.addField(problem->getExactTemperature(), "temperatureExact");
     vtkWriter.write(0.0); //restart time = 0
     
     //initialize coupling data TODO
@@ -287,10 +286,7 @@ int main(int argc, char** argv)
         // report statistics of this time step
         timeLoop->reportTimeStep();
 
-
-        //std::cout << "Update exact temperature" << std::endl;
-        // compute the new analytical temperature field for the output
-        //problem->updateExactTemperature(x, timeLoop->time()+timeLoop->timeStepSize());
+        //nested forloops
         //temperatures = gridVariables->curGridVolVars()[temperatureID]; //TODO
         //std::cout << gridVariables->curGridVolVars() << std::endl; //trying to output the solution
         //temperatures = x[temperatureIDx];
