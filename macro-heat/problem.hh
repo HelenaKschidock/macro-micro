@@ -95,6 +95,16 @@ public:
         name_ = getParam<std::string>("Problem.Name");
     }
 
+    int returnPressureIdx()
+    {
+        return pressureIdx;
+    }
+
+    int returnTemperatureIdx()
+    {
+        return temperatureIdx;
+    }
+
 
     void updatePreciceDataIds(std::map<std::string,int> readDataIDs, int temperatureID) //or do i overwrite temperatureIdx here?
     {
@@ -176,7 +186,7 @@ public:
      */
     PrimaryVariables initialAtPos(const GlobalPosition &globalPos) const
     {
-        return initial_();
+        return initial_(); //called 25times
     }
 
 

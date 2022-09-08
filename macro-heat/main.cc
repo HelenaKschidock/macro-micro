@@ -85,7 +85,8 @@ int main(int argc, char** argv)
     using namespace Dumux::Precice; //for QuantityType 
 
     // define the type tag for this problem
-    using TypeTag = Properties::TTag::OnePNIConductionCCTpfa; //using TypeTag = Properties::TTag::TYPETAG; : TYPETAG is a CMakeLists.txt input
+    using TypeTag = Properties::TTag::OnePNIConductionCCTpfa; 
+    using Scalar = GetPropType<TypeTag, Properties::Scalar>;
 
     // initialize MPI, finalize is done automatically on exit
     const auto& mpiHelper = Dune::MPIHelper::instance(argc, argv);
@@ -122,7 +123,6 @@ int main(int argc, char** argv)
     // - Name of solver
     // - What rank of how many ranks this instance is
     // Configure preCICE. For now the config file is hardcoded.
-
     std::string preciceConfigFilename = "precice-config-heat.xml";
     if (argc > 2)
         preciceConfigFilename = argv[argc - 1];
@@ -130,7 +130,7 @@ int main(int argc, char** argv)
     auto &couplingInterface = Dumux::Precice::CouplingAdapter::getInstance();
     couplingInterface.announceSolver("Macro-heat", preciceConfigFilename,
                                      mpiHelper.rank(), mpiHelper.size());
-
+    
     //verify that dimensions match
     const int dim = couplingInterface.getDimensions();
     std::cout << "coupling Dims = " << dim << " , leafgrid dims = " << int(leafGridView.dimension) << std::endl;
@@ -138,29 +138,60 @@ int main(int argc, char** argv)
         DUNE_THROW(Dune::InvalidStateException, "Dimensions do not match");
     }
 
-    //get mesh coordinates
+    //get mesh coordinates 
     std::string meshName = "macro-mesh";
-    std::vector<double> coords;  //( dim * vertexSize );
+    std::vector<double> coords;  //( dim * nSCV );
     std::vector<int> coupledElementIdxs;
+    //... and Gauss coordinates
+    std::vector<double> gaussCoords; //(dim* nSCV * 4)
+    std::vector<int> coupledGaussIdxs; //last digit: 0 LL, 1 LR, 2 UL, 3 UR; int(/10): elementIndex
+    using GlobalPosition = typename GridGeometry::GlobalCoordinate;
+    const auto lowerLeft = getParamFromGroup<GlobalPosition>(paramGroup, "Grid.LowerLeft", GlobalPosition(0.0));
+    const auto upperRight = getParamFromGroup<GlobalPosition>(paramGroup, "Grid.UpperRight");
+    const auto cells = getParam<std::array<int, 2>>("Grid.Cells", std::array<int, 2>{{1, 1}});
+    double cellLengthX;
+    cellLengthX = (upperRight[0] - lowerLeft[0])/cells[0]; 
+    double cellLengthY;
+    cellLengthY = (upperRight[1] - lowerLeft[1])/cells[1]; 
+    //coordinate loop (created vectors are 1D)
     for (const auto &element : elements(leafGridView)) {
         auto fvGeometry = localView(*gridGeometry); 
         fvGeometry.bindElement(element);
         for (const auto &scv : scvs(fvGeometry)){ //only one SCV per element for CCTpfa (but 4 scvfs)
             coupledElementIdxs.push_back(scv.elementIndex());
             const auto &pos = scv.center();
+            //redundancy to keep correct order within 1D vectors
+            //cell centers
             for (const auto p : pos)
                 coords.push_back(p);
+            //lower left Gauss point
+            gaussCoords.push_back(pos[0]-3/10*cellLengthX);
+            gaussCoords.push_back(pos[1]-3/10*cellLengthY);
+            coupledGaussIdxs.push_back(scv.elementIndex()*10);
+            //lower right Gauss point
+            gaussCoords.push_back(pos[0]+3/10*cellLengthX);
+            gaussCoords.push_back(pos[1]-3/10*cellLengthY);
+            coupledGaussIdxs.push_back(scv.elementIndex()*10+1);
+            //upper left Gauss point
+            gaussCoords.push_back(pos[0]-3/10*cellLengthX);
+            gaussCoords.push_back(pos[1]+3/10*cellLengthY);
+            coupledGaussIdxs.push_back(scv.elementIndex()*10+2);
+            //upper right Gauss point
+            gaussCoords.push_back(pos[0]+3/10*cellLengthX);
+            gaussCoords.push_back(pos[1]+3/10*cellLengthY);
+            coupledGaussIdxs.push_back(scv.elementIndex()*10+3);
         }
     }
 
-    std::cout << "coupledElementIdxs.size() = " << coupledElementIdxs.size() << std::endl;
-    
-    //initialize preCICE
-    auto numberOfPoints = coords.size()/dim;
-    const double preciceDt = couplingInterface.setMeshAndInitialize(
-        meshName, numberOfPoints, coords);
-    couplingInterface.createIndexMapping(coupledElementIdxs); 
+    std::cout << "Number of Coupled Gauss Idxs:" << coupledGaussIdxs.size() << std::endl;
+    std::cout << "Number of Coupled Cells:" << coupledElementIdxs.size() << std::endl;
 
+    //initialize preCICE
+    auto numberOfElements = coords.size()/dim; //number of Elents (cells)
+    auto numberOfGaussPoints = gaussCoords.size()/dim; //number of Gauss points
+    const double preciceDt = couplingInterface.setMeshAndInitialize(
+        meshName, numberOfGaussPoints, gaussCoords);
+    couplingInterface.createIndexMapping(coupledGaussIdxs); //TODO set to CoupledGaussIdx
     //coupling data
     std::list<std::string> readDataNames = {"k_00", "k_01", "k_10", "k_11", "porosity"};
     std::map<std::string,int> readDataIDs;
@@ -181,18 +212,16 @@ int main(int argc, char** argv)
     problem->updatePreciceDataIds(readDataIDs, temperatureID);    
  
     // get some time loop parameters
-    using Scalar = GetPropType<TypeTag, Properties::Scalar>;
     const auto tEnd = getParam<Scalar>("TimeLoop.TEnd");
     auto dt = preciceDt;
 
-    // the solution vector
+    // the solution vector (initialized with zero)
     using SolutionVector = GetPropType<TypeTag, Properties::SolutionVector>;
-    SolutionVector x(gridGeometry->numDofs());
-    std::cout << "x:" << x << std::endl;                    //TODO: what is happening here? initialization with 0?
-    problem->applyInitialSolution(x); 
+    SolutionVector x(gridGeometry->numDofs());          //(!solution vector at cell centers not at gauss points; Nelements x (pressure, temperature), initialized to 0 all)        
+    problem->applyInitialSolution(x);  // initialized with initial values from dumux
     auto xOld = x;
 
-    // the grid variables                           //TODO what is happening here? does this need to be modified? we only want to write the temperature, porosity, conductivity
+    // the grid variables                           
     using GridVariables = GetPropType<TypeTag, Properties::GridVariables>;
     auto gridVariables = std::make_shared<GridVariables>(problem, gridGeometry);
     gridVariables->init(x);
@@ -203,20 +232,23 @@ int main(int argc, char** argv)
     using VelocityOutput = GetPropType<TypeTag, Properties::VelocityOutput>;
     vtkWriter.addVelocityOutput(std::make_shared<VelocityOutput>(*gridVariables));
     IOFields::initOutputModule(vtkWriter); // Add model specific output fields
-    vtkWriter.write(0.0); //restart time = 0
-    
-    //initialize coupling data TODO
-    for (const auto &elementIdx : coupledElementIdxs){
-        temperatures.push_back(couplingInterface.getScalarQuantityOnFace(temperatureID, elementIdx)); 
-    }
-    
+    vtkWriter.write(0.0); //restart time = 0 //TODO requires e.g. porosity and temperature functions; should probably be done after first communication of init data
+
+    //initialize coupling data
+    //TODO correct interpolation or return values at pos
+    for (int solIdx=0; solIdx< numberOfElements; ++solIdx){
+        temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]);
+        temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]); 
+        temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]); 
+        temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]);  
+    };
+
     couplingInterface.writeQuantityVector(temperatureID, temperatures);
     if (couplingInterface.hasToWriteInitialData()){
         couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);
         couplingInterface.announceInitialDataWritten();
     }
     couplingInterface.initializeData();
-
     // output every vtkOutputInterval time step
     const int vtkOutputInterval = getParam<int>("Problem.OutputInterval");
 
@@ -257,13 +289,13 @@ int main(int argc, char** argv)
         }
 
         //write Data to couplingInterface Faces
-        for (const auto &elementIdx : coupledElementIdxs){
+        /*for (const auto &elementIdx : coupledElementIdxs){
                 couplingInterface.writeScalarQuantityOnFace(readDataIDs["porosity"], elementIdx, poroData[elementIdx]);
                 std::cout << "poroData:" << poroData[elementIdx] << std::endl;
                 for (auto iter = conductivityData.begin(); iter != conductivityData.end(); iter++){
                     couplingInterface.writeScalarQuantityOnFace(readDataIDs[iter->first], elementIdx, conductivityData[iter->first][elementIdx]);
                 }
-        }
+        }*/
         
         std::cout << "Solver starts" << std::endl;
         // linearize & solve
@@ -314,7 +346,6 @@ int main(int argc, char** argv)
     ////////////////////////////////////////////////////////////
 
     couplingInterface.finalize();
-
     // print dumux end message
     if (mpiHelper.rank() == 0)
     {

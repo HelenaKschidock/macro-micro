@@ -79,9 +79,9 @@ public:
     Scalar porosity(const Element& element, 
                     const SubControlVolume& scv, 
                     const ElementSolution& elemSol) const
-    {   
-        const int elemIdx = scv.elementIndex(); 
-        return couplingInterface_.getScalarQuantityOnFace(couplingInterface_.getIdFromName("porosity"), elemIdx); 
+    {   //TODO
+        //const int elemIdx = scv.elementIndex(); 
+        return 0; //couplingInterface_.getScalarQuantityOnFace(couplingInterface_.getIdFromName("porosity"), elemIdx); 
     } 
 
     /*!
