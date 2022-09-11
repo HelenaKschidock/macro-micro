@@ -118,8 +118,16 @@ public:
 
         return defaultTemperature;
     }
+
+    Scalar solidThermalConductivity(const Element &element,
+                                    const FVElementGeometry &fvGeometry,
+                                    const SubControlVolume& scv) const
+    //TODO:Conductivity implement conductivity tensor here (ignore the "solid" misnomer; scalar to tensor?)
+    { return lambdaSolid_; }
+
 private:
     Dumux::Precice::CouplingAdapter &couplingInterface_;
+    Scalar lambdaSolid_;
 };
 
 } // end namespace Dumux

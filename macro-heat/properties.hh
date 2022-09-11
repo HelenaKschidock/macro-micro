@@ -44,6 +44,7 @@
 
 #include "problem.hh"
 #include "spatialparams.hh"
+#include "upscaledconductivity.hh"
 
 namespace Dumux::Properties {
 // Create new type tags
@@ -78,6 +79,12 @@ struct SpatialParams<TypeTag, TTag::OnePNIConduction>
     using type = OnePNISpatialParams<GridGeometry, Scalar>;
 };
 
+//set the local conductivity 
+template<class TypeTag>
+struct ThermalConductivityModel<TypeTag, TTag::OnePNIConduction>
+{ 
+    using type = UpscaledConductivity<GetPropType<TypeTag, Properties::Scalar>>; 
+};
 } // end namespace Dumux
 
 #endif
