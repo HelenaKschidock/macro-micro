@@ -90,41 +90,6 @@ public:
         return porElement/4;
     } 
 
-    /*!
-     * \brief Return the temperature in the given sub-control volume.
-     */
-    template<class ElementSolution>
-    Scalar temperature(const Element& element,
-                       const SubControlVolume& scv,
-                       const ElementSolution& elemSol) const
-    {
-        //TODO implement
-        return 0.0;
-    }
-
-    /*!
-     * \brief Return the temperature in the domain at the given position
-     * \param globalPos The position in global coordinates where the temperature should be specified.
-     */
-    Scalar temperatureAtPos(const GlobalPosition& globalPos) const
-    {   std::cout << "THIS IS SUPPOSED TO NEVER BE CALLED. FUCK." << std::endl;
-        static const Scalar defaultTemperature = [] ()
-        {
-            Scalar defaultTemp = 293.15; // 20°C
-            if (!hasParam("SpatialParams.Temperature"))
-            {
-                std::cout << " -- Using the default temperature of " << defaultTemp << " in the entire domain. "
-                          << "Overload temperatureAtPos() in your spatial params class to define a custom temperature field."
-                          << "Or provide the preferred domain temperature via the Spat>ialParams.Temperature parameter."
-                          << std::endl;
-            }
-            const Scalar temperature = getParam<Scalar>("SpatialParams.Temperature", defaultTemp);
-            return temperature;
-        } ();
-
-        return defaultTemperature;
-    }
-
     Scalar solidThermalConductivity(const Element &element,
                                     const FVElementGeometry &fvGeometry,
                                     const SubControlVolume& scv) const
