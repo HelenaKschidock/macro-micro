@@ -79,9 +79,15 @@ public:
     Scalar porosity(const Element& element, 
                     const SubControlVolume& scv, 
                     const ElementSolution& elemSol) const
-    {   //TODO
-        //const int elemIdx = scv.elementIndex(); 
-        return 0; //couplingInterface_.getScalarQuantityOnFace(couplingInterface_.getIdFromName("porosity"), elemIdx); 
+    {   //TODO make sure element indices correspond to quantityvector
+        //TODO check WHEN this function is called (should be AFTER communication)
+        //Alternative: via writeToFace in main,.
+        double porElement = 0.0;
+        std::vector<double> porosityData = couplingInterface_.getQuantityVector(porosityId_);
+        for (int i = 0; i != 4; i++){
+            porElement += porosityData[scv.elementIndex()*4+i];
+        }
+        return porElement/4;
     } 
 
     /*!
@@ -128,6 +134,7 @@ public:
 private:
     Dumux::Precice::CouplingAdapter &couplingInterface_;
     Scalar lambdaSolid_;
+    int porosityId_ = 0; //readDataIDs["porosity"] TODO check, also this is hardcoded in an ugly way
 };
 
 } // end namespace Dumux

@@ -167,19 +167,19 @@ int main(int argc, char** argv)
             //lower left Gauss point
             gaussCoords.push_back(pos[0]-3/10*cellLengthX);
             gaussCoords.push_back(pos[1]-3/10*cellLengthY);
-            coupledGaussIdxs.push_back(scv.elementIndex()*10);
+            coupledGaussIdxs.push_back(scv.elementIndex()*4);
             //lower right Gauss point
             gaussCoords.push_back(pos[0]+3/10*cellLengthX);
             gaussCoords.push_back(pos[1]-3/10*cellLengthY);
-            coupledGaussIdxs.push_back(scv.elementIndex()*10+1);
+            coupledGaussIdxs.push_back(scv.elementIndex()*4+1);
             //upper left Gauss point
             gaussCoords.push_back(pos[0]-3/10*cellLengthX);
             gaussCoords.push_back(pos[1]+3/10*cellLengthY);
-            coupledGaussIdxs.push_back(scv.elementIndex()*10+2);
+            coupledGaussIdxs.push_back(scv.elementIndex()*4+2);
             //upper right Gauss point
             gaussCoords.push_back(pos[0]+3/10*cellLengthX);
             gaussCoords.push_back(pos[1]+3/10*cellLengthY);
-            coupledGaussIdxs.push_back(scv.elementIndex()*10+3);
+            coupledGaussIdxs.push_back(scv.elementIndex()*4+3);
         }
     }
 
@@ -191,7 +191,7 @@ int main(int argc, char** argv)
     auto numberOfGaussPoints = gaussCoords.size()/dim; //number of Gauss points
     const double preciceDt = couplingInterface.setMeshAndInitialize(
         meshName, numberOfGaussPoints, gaussCoords);
-    couplingInterface.createIndexMapping(coupledGaussIdxs); //TODO set to CoupledGaussIdx
+    couplingInterface.createIndexMapping(coupledGaussIdxs); //couples between dumux element indices: scv.elementIndex()*10+i, i in 0,1,2,3 and preciceIndices //TODO check order
     //coupling data
     std::list<std::string> readDataNames = {"k_00", "k_01", "k_10", "k_11", "porosity"};
     std::map<std::string,int> readDataIDs;
@@ -201,13 +201,7 @@ int main(int argc, char** argv)
     std::string writeDataName = "temperature";
     int temperatureID = couplingInterface.announceScalarQuantity(writeDataName);
 
-    std::vector<double> poroData;
-    std::vector<double> k_00;
-    std::vector<double> k_01;
-    std::vector<double> k_10;
-    std::vector<double> k_11;
     std::vector<double> temperatures;
-    std::map<std::string, std::vector<double>> conductivityData {{"k_00", k_00}, {"k_01", k_01}, {"k_10", k_10}, {"k_11", k_11}};
 
     problem->updatePreciceDataIds(readDataIDs, temperatureID);    
  
@@ -249,6 +243,8 @@ int main(int argc, char** argv)
         couplingInterface.announceInitialDataWritten();
     }
     couplingInterface.initializeData();
+    //TODO read from other solver?
+
     // output every vtkOutputInterval time step
     const int vtkOutputInterval = getParam<int>("Problem.OutputInterval");
 
@@ -278,24 +274,10 @@ int main(int argc, char** argv)
             couplingInterface.announceIterationCheckpointWritten();
         }
 
-        //Read porosity
-        couplingInterface.readQuantityFromOtherSolver(readDataIDs["porosity"], QuantityType::Scalar);
-        poroData = couplingInterface.getQuantityVector(readDataIDs["porosity"]);
-        
-        //Read conductivity and TODO apply write into dumux TODO check
-        for (auto iter = conductivityData.begin(); iter != conductivityData.end(); iter++){
-            couplingInterface.readQuantityFromOtherSolver(readDataIDs[iter->first], QuantityType::Scalar);
-            conductivityData[iter->first] = couplingInterface.getQuantityVector(readDataIDs[iter->first]);
+        //Read porosity and conductivity data from other solver
+        for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
+            couplingInterface.readQuantityFromOtherSolver(readDataIDs[iter->c_str()], QuantityType::Scalar);
         }
-
-        //write Data to couplingInterface Faces
-        /*for (const auto &elementIdx : coupledElementIdxs){
-                couplingInterface.writeScalarQuantityOnFace(readDataIDs["porosity"], elementIdx, poroData[elementIdx]);
-                std::cout << "poroData:" << poroData[elementIdx] << std::endl;
-                for (auto iter = conductivityData.begin(); iter != conductivityData.end(); iter++){
-                    couplingInterface.writeScalarQuantityOnFace(readDataIDs[iter->first], elementIdx, conductivityData[iter->first][elementIdx]);
-                }
-        }*/
         
         std::cout << "Solver starts" << std::endl;
         // linearize & solve
@@ -331,6 +313,7 @@ int main(int argc, char** argv)
 
         // set new dt as suggested by the newton solver or by precice
         timeLoop->setTimeStepSize(dt);
+        std::cout << "Checkpoint" << std::endl;
         
         //TODO output every 0.1. currently does not exactly hit this.
         if (timeLoop->timeStepIndex()==0 || int(timeLoop->time()/outputTimeInterval) > int(tOld/outputTimeInterval) || timeLoop->finished())
