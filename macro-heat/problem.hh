@@ -95,11 +95,6 @@ public:
         name_ = getParam<std::string>("Problem.Name");
     }
 
-    int returnPressureIdx()
-    {
-        return pressureIdx;
-    }
-
     int returnTemperatureIdx()
     {
         return temperatureIdx;
