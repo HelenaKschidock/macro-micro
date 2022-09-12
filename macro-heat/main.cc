@@ -300,10 +300,14 @@ int main(int argc, char** argv)
         // report statistics of this time step
         timeLoop->reportTimeStep();
 
-        //nested forloops
-        //temperatures = gridVariables->curGridVolVars()[temperatureID]; //TODO
-        //std::cout << gridVariables->curGridVolVars() << std::endl; //trying to output the solution
-        //temperatures = x[temperatureIDx];
+        //TODO correct interpolation or return values at pos
+        temperatures.clear(); //TODO maybe more efficient ot just overwrite
+        for (int solIdx=0; solIdx< numberOfElements; ++solIdx){
+            temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]);
+            temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]); 
+            temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]); 
+            temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]);  
+        };
         couplingInterface.writeQuantityVector(temperatureID, temperatures);
         couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);
 
