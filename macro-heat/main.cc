@@ -142,9 +142,6 @@ int main(int argc, char** argv)
     std::string meshName = "macro-mesh";
     std::vector<double> coords;  //( dim * nSCV );
     std::vector<int> coupledElementIdxs;
-    //... and Gauss coordinates
-    std::vector<double> gaussCoords; //(dim* nSCV * 4)
-    std::vector<int> coupledGaussIdxs; //last digit: 0 LL, 1 LR, 2 UL, 3 UR; int(/10): elementIndex
     using GlobalPosition = typename GridGeometry::GlobalCoordinate;
     const auto lowerLeft = getParamFromGroup<GlobalPosition>(paramGroup, "Grid.LowerLeft", GlobalPosition(0.0));
     const auto upperRight = getParamFromGroup<GlobalPosition>(paramGroup, "Grid.UpperRight");
@@ -160,43 +157,26 @@ int main(int argc, char** argv)
         for (const auto &scv : scvs(fvGeometry)){ //only one SCV per element for CCTpfa (but 4 scvfs)
             coupledElementIdxs.push_back(scv.elementIndex());
             const auto &pos = scv.center();
-            //redundancy to keep correct order within 1D vectors
             //cell centers
+            //TODO: check that order is correct (likely not the case)
             for (const auto p : pos)
                 coords.push_back(p);
-            //lower left Gauss point
-            gaussCoords.push_back(pos[0]-3/10*cellLengthX);
-            gaussCoords.push_back(pos[1]-3/10*cellLengthY);
-            coupledGaussIdxs.push_back(scv.elementIndex()*4);
-            //lower right Gauss point
-            gaussCoords.push_back(pos[0]+3/10*cellLengthX);
-            gaussCoords.push_back(pos[1]-3/10*cellLengthY);
-            coupledGaussIdxs.push_back(scv.elementIndex()*4+1);
-            //upper left Gauss point
-            gaussCoords.push_back(pos[0]-3/10*cellLengthX);
-            gaussCoords.push_back(pos[1]+3/10*cellLengthY);
-            coupledGaussIdxs.push_back(scv.elementIndex()*4+2);
-            //upper right Gauss point
-            gaussCoords.push_back(pos[0]+3/10*cellLengthX);
-            gaussCoords.push_back(pos[1]+3/10*cellLengthY);
-            coupledGaussIdxs.push_back(scv.elementIndex()*4+3);
         }
     }
 
-    std::cout << "Number of Coupled Gauss Idxs:" << coupledGaussIdxs.size() << std::endl;
     std::cout << "Number of Coupled Cells:" << coupledElementIdxs.size() << std::endl;
 
     //initialize preCICE
     auto numberOfElements = coords.size()/dim; //number of Elents (cells)
-    auto numberOfGaussPoints = gaussCoords.size()/dim; //number of Gauss points
     const double preciceDt = couplingInterface.setMeshAndInitialize(
-        meshName, numberOfGaussPoints, gaussCoords);
-    couplingInterface.createIndexMapping(coupledGaussIdxs); //couples between dumux element indices: scv.elementIndex()*10+i, i in 0,1,2,3 and preciceIndices //TODO check order
+        meshName, numberOfElements, coords);
+    couplingInterface.createIndexMapping(coupledElementIdxs); //couples between dumux element indices: scv.elementIndex()*10+i, i in 0,1,2,3 and preciceIndices //TODO check order
     //coupling data
     std::list<std::string> readDataNames = {"k_00", "k_01", "k_10", "k_11", "porosity"};
     std::map<std::string,int> readDataIDs;
     for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
         readDataIDs[iter->c_str()] = couplingInterface.announceScalarQuantity(iter->c_str());
+        std::cout << iter->c_str() << " Id: " << readDataIDs[iter->c_str()]<< std::endl; //TODO remove
     }
     std::string writeDataName = "temperature";
     int temperatureID = couplingInterface.announceScalarQuantity(writeDataName);
@@ -229,12 +209,8 @@ int main(int argc, char** argv)
     vtkWriter.write(0.0); //restart time = 0 //TODO requires e.g. porosity and temperature functions; should probably be done after first communication of init data
 
     //initialize coupling data
-    //TODO correct interpolation or return values at pos
     for (int solIdx=0; solIdx< numberOfElements; ++solIdx){
         temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]);
-        temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]); 
-        temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]); 
-        temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]);  
     };
 
     couplingInterface.writeQuantityVector(temperatureID, temperatures);
@@ -300,16 +276,13 @@ int main(int argc, char** argv)
         // report statistics of this time step
         timeLoop->reportTimeStep();
 
-        //TODO correct interpolation or return values at pos
         temperatures.clear(); //TODO maybe more efficient ot just overwrite
         for (int solIdx=0; solIdx< numberOfElements; ++solIdx){
             temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]);
-            temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]); 
-            temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]); 
-            temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]);  
         };
+
         couplingInterface.writeQuantityVector(temperatureID, temperatures);
-        couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);
+        couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);      
 
         //advance precice
         const double preciceDt = couplingInterface.advance(dt);
