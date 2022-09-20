@@ -221,11 +221,11 @@ int main(int argc, char** argv)
 
     couplingInterface.writeQuantityVector(temperatureID, temperatures);
     if (couplingInterface.hasToWriteInitialData()){
+        couplingInterface.writeQuantityVector(temperatureID, temperatures);
         couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);
         couplingInterface.announceInitialDataWritten();
     }
     couplingInterface.initializeData();
-    //TODO read from other solver?
 
     // output every vtkOutputInterval time step
     const int vtkOutputInterval = getParam<int>("Problem.OutputInterval");
