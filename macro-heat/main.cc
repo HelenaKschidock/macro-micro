@@ -170,7 +170,7 @@ int main(int argc, char** argv)
     auto numberOfElements = coords.size()/dim; //number of Elents (cells)
     const double preciceDt = couplingInterface.setMeshAndInitialize(
         meshName, numberOfElements, coords);
-    couplingInterface.createIndexMapping(coupledElementIdxs); //couples between dumux element indices: scv.elementIndex()*10+i, i in 0,1,2,3 and preciceIndices //TODO check order
+    couplingInterface.createIndexMapping(coupledElementIdxs); //couples between dumux element indices and preciceIndices; 
     //coupling data
     std::list<std::string> readDataNames = {"k_00", "k_01", "k_10", "k_11", "porosity"};
     std::map<std::string,int> readDataIDs;
@@ -182,6 +182,12 @@ int main(int argc, char** argv)
     int temperatureID = couplingInterface.announceScalarQuantity(writeDataName);
 
     std::vector<double> temperatures;
+    std::vector<double> porosities;
+    std::vector<double> k_00;
+    std::vector<double> k_01;
+    std::vector<double> k_10;
+    std::vector<double> k_11;
+    std::map<std::string, std::vector<double>> conductivityData {{"k_00", k_00}, {"k_01", k_01}, {"k_10", k_10}, {"k_11", k_11}};
 
     problem->updatePreciceDataIds(readDataIDs, temperatureID);    
  
@@ -254,7 +260,11 @@ int main(int argc, char** argv)
         for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
             couplingInterface.readQuantityFromOtherSolver(readDataIDs[iter->c_str()], QuantityType::Scalar);
         }
-        
+        //TODO analogously for conductivities
+        porosities = couplingInterface.getQuantityVector(readDataIDs["porosity"]);
+        for (const auto &i : coupledElementIdxs){ 
+            couplingInterface.writeScalarQuantityOnFace(readDataIDs["porosity"], i, porosities[i]);//writes on element not on face
+        }
         std::cout << "Solver starts" << std::endl;
         // linearize & solve
         nonLinearSolver.solve(x, *timeLoop);

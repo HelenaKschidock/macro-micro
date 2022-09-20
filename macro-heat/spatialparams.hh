@@ -81,13 +81,7 @@ public:
                     const ElementSolution& elemSol) const
     {   //TODO make sure element indices correspond to quantityvector
         //TODO check WHEN this function is called (should be AFTER communication)
-        //Alternative: via writeToFace in main,.
-        double porElement = 0.0;
-        std::vector<double> porosityData = couplingInterface_.getQuantityVector(porosityId_);
-        for (int i = 0; i != 4; i++){
-            porElement += porosityData[scv.elementIndex()*4+i];
-        }
-        return porElement/4;
+        return couplingInterface_.getScalarQuantityOnFace(porosityId_,scv.elementIndex());
     } 
 
     Scalar solidThermalConductivity(const Element &element,
