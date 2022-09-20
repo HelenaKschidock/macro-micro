@@ -146,10 +146,7 @@ int main(int argc, char** argv)
     const auto lowerLeft = getParamFromGroup<GlobalPosition>(paramGroup, "Grid.LowerLeft", GlobalPosition(0.0));
     const auto upperRight = getParamFromGroup<GlobalPosition>(paramGroup, "Grid.UpperRight");
     const auto cells = getParam<std::array<int, 2>>("Grid.Cells", std::array<int, 2>{{1, 1}});
-    double cellLengthX;
-    cellLengthX = (upperRight[0] - lowerLeft[0])/cells[0]; 
-    double cellLengthY;
-    cellLengthY = (upperRight[1] - lowerLeft[1])/cells[1]; 
+
     //coordinate loop (created vectors are 1D)
     for (const auto &element : elements(leafGridView)) {
         auto fvGeometry = localView(*gridGeometry); 
@@ -212,7 +209,7 @@ int main(int argc, char** argv)
     using VelocityOutput = GetPropType<TypeTag, Properties::VelocityOutput>;
     vtkWriter.addVelocityOutput(std::make_shared<VelocityOutput>(*gridVariables));
     IOFields::initOutputModule(vtkWriter); // Add model specific output fields
-    vtkWriter.write(0.0); //restart time = 0 //TODO requires e.g. porosity and temperature functions; should probably be done after first communication of init data
+    vtkWriter.write(0.0); //restart time = 0 
 
     //initialize coupling data
     for (int solIdx=0; solIdx< numberOfElements; ++solIdx){
