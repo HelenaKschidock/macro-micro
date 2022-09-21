@@ -44,7 +44,7 @@
 
 #include "problem.hh"
 #include "spatialparams.hh"
-#include "upscaledconductivity.hh"
+#include "myvolumevariables.hh"
 
 namespace Dumux::Properties {
 // Create new type tags
@@ -70,6 +70,24 @@ struct FluidSystem<TypeTag, TTag::OnePNIConduction>
                                           Components::SimpleH2O<GetPropType<TypeTag, Properties::Scalar>> >;
 };
 
+//! Set the volume variables property
+template<class TypeTag>
+struct VolumeVariables<TypeTag, TTag::OnePNIConduction>
+{
+private:
+    using PV = GetPropType<TypeTag, Properties::PrimaryVariables>;
+    using FSY = GetPropType<TypeTag, Properties::FluidSystem>;
+    using FST = GetPropType<TypeTag, Properties::FluidState>;
+    using SSY = GetPropType<TypeTag, Properties::SolidSystem>;
+    using SST = GetPropType<TypeTag, Properties::SolidState>;
+    using PT = typename GetPropType<TypeTag, Properties::SpatialParams>::PermeabilityType;
+    using MT = GetPropType<TypeTag, Properties::ModelTraits>;
+
+    using Traits = OnePVolumeVariablesTraits<PV, FSY, FST, SSY, SST, PT, MT>; //TODO?
+public:
+    using type = MyOnePVolumeVariables<Traits>;
+};
+
 // Set the spatial parameters
 template<class TypeTag>
 struct SpatialParams<TypeTag, TTag::OnePNIConduction>
@@ -79,12 +97,6 @@ struct SpatialParams<TypeTag, TTag::OnePNIConduction>
     using type = OnePNISpatialParams<GridGeometry, Scalar>;
 };
 
-//set the local conductivity 
-template<class TypeTag>
-struct ThermalConductivityModel<TypeTag, TTag::OnePNIConduction>
-{ 
-    using type = UpscaledConductivity<GetPropType<TypeTag, Properties::Scalar>>; 
-};
-} // end namespace Dumux
-
+}
+// end namespace Dumux
 #endif

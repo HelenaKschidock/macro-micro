@@ -46,6 +46,7 @@ class OnePNISpatialParams
     using ParentType = FVPorousMediumFlowSpatialParamsOneP<GridGeometry, Scalar, ThisType>;
 
     static const int dimWorld = GridView::dimensionworld;
+    using DimWorldMatrix = Dune::FieldMatrix<Scalar, dimWorld, dimWorld>; //see https://dumux.org/docs/doxygen/releases/3.5/a00575_source.html
     using Element = typename GridView::template Codim<0>::Entity;
     using GlobalPosition = typename Element::Geometry::GlobalCoordinate;
 
@@ -84,16 +85,25 @@ public:
         return couplingInterface_.getScalarQuantityOnFace(porosityId_,scv.elementIndex());
     } 
 
-    Scalar solidThermalConductivity(const Element &element,
-                                    const FVElementGeometry &fvGeometry,
+    DimWorldMatrix solidThermalConductivity(const Element &element,
                                     const SubControlVolume& scv) const
-    //TODO:Conductivity implement conductivity tensor here (ignore the "solid" misnomer; scalar to tensor?)
-    { return lambdaSolid_; }
+    { 
+        DimWorldMatrix K;
+        K[0][0] = couplingInterface_.getScalarQuantityOnFace(k00Id_,scv.elementIndex());
+        K[0][1] = couplingInterface_.getScalarQuantityOnFace(k01Id_,scv.elementIndex());
+        K[1][0] = couplingInterface_.getScalarQuantityOnFace(k10Id_,scv.elementIndex());
+        K[1][1] = couplingInterface_.getScalarQuantityOnFace(k11Id_,scv.elementIndex());
+        return K; 
+    }
 
 private:
     Dumux::Precice::CouplingAdapter &couplingInterface_;
-    Scalar lambdaSolid_;
     int porosityId_ = 0; //readDataIDs["porosity"] TODO check, also this is hardcoded in an ugly way
+    //TODO check
+    int k00Id_ = 1;
+    int k01Id_ = 2;
+    int k10Id_ = 3;
+    int k11Id_ = 4;
 };
 
 } // end namespace Dumux

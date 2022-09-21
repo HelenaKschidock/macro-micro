@@ -37,7 +37,6 @@
 
 #include <dumux/material/components/h2o.hh>
 
-
 #include <dumux-precice/couplingadapter.hh>
 
 namespace Dumux {
@@ -66,7 +65,7 @@ class OnePNIConductionProblem : public PorousMediumFlowProblem<TypeTag>
     using FluidSystem = GetPropType<TypeTag, Properties::FluidSystem>;
     using BoundaryTypes = Dumux::BoundaryTypes<GetPropType<TypeTag, Properties::ModelTraits>::numEq()>;
     using ThermalConductivityModel = GetPropType<TypeTag, Properties::ThermalConductivityModel>;
-    using VolumeVariables = GetPropType<TypeTag, Properties::VolumeVariables>;
+    using VolumeVariables = GetPropType<TypeTag, Properties::VolumeVariables>; //TODO or replace entirely with MyVolumeVariables
     using SolutionVector = GetPropType<TypeTag, Properties::SolutionVector>;
     using IapwsH2O = Components::H2O<Scalar>;
 
