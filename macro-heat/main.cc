@@ -146,7 +146,7 @@ int main(int argc, char** argv)
     const auto lowerLeft = getParamFromGroup<GlobalPosition>(paramGroup, "Grid.LowerLeft", GlobalPosition(0.0));
     const auto upperRight = getParamFromGroup<GlobalPosition>(paramGroup, "Grid.UpperRight");
     const auto cells = getParam<std::array<int, 2>>("Grid.Cells", std::array<int, 2>{{1, 1}});
-
+    std::cout << "coordinates: " << std::endl;
     //coordinate loop (created vectors are 1D)
     for (const auto &element : elements(leafGridView)) {
         auto fvGeometry = localView(*gridGeometry); 
@@ -156,11 +156,14 @@ int main(int argc, char** argv)
             const auto &pos = scv.center();
             //cell centers
             //TODO: check that order is correct (likely not the case)
-            for (const auto p : pos)
+            for (const auto p : pos){
                 coords.push_back(p);
+                std::cout <<  p << "  ";
+            }
+            std::cout << " ;" << std::endl;
+                
         }
     }
-
     std::cout << "Number of Coupled Cells:" << coupledElementIdxs.size() << std::endl;
 
     //initialize preCICE
@@ -172,8 +175,7 @@ int main(int argc, char** argv)
     std::list<std::string> readDataNames = {"k_00", "k_01", "k_10", "k_11", "porosity"};
     std::map<std::string,int> readDataIDs;
     for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
-        readDataIDs[iter->c_str()] = couplingInterface.announceScalarQuantity(iter->c_str());
-        std::cout << iter->c_str() << " Id: " << readDataIDs[iter->c_str()]<< std::endl; //TODO remove
+        readDataIDs[iter->c_str()] = couplingInterface.announceScalarQuantity(iter->c_str()); //Ids are 0 to 4 in order of readDataNames
     }
     std::string writeDataName = "concentration";//"temperature";
     int temperatureID = couplingInterface.announceScalarQuantity(writeDataName);
@@ -245,7 +247,6 @@ int main(int argc, char** argv)
     // time loop
     std::cout << "Time Loop starts" << std::endl;
     const auto outputTimeInterval = getParam<Scalar>("TimeLoop.TOutput");
-    auto tOld = timeLoop->time();
     timeLoop->start(); do
     {   // write checkpoint
         if (couplingInterface.hasToWriteIterationCheckpoint()) {
@@ -266,23 +267,6 @@ int main(int argc, char** argv)
         // linearize & solve
         nonLinearSolver.solve(x, *timeLoop);
 
-        // make the new solution the old solution
-        if (couplingInterface.hasToReadIterationCheckpoint()) {
-            //            //Read checkpoint
-            //            freeFlowVtkWriter.write(vtkTime);
-            //            vtkTime += 1.;
-            xOld = x;
-            gridVariables->update(x);
-            gridVariables->advanceTimeStep();
-            couplingInterface.announceIterationCheckpointRead();
-        }
-
-        // advance to the time loop to the next step
-        timeLoop->advanceTimeStep();
-
-        // report statistics of this time step
-        timeLoop->reportTimeStep();
-
         temperatures.clear(); //TODO maybe more efficient ot just overwrite
         for (int solIdx=0; solIdx< numberOfElements; ++solIdx){
             temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]);
@@ -293,16 +277,32 @@ int main(int argc, char** argv)
 
         //advance precice
         const double preciceDt = couplingInterface.advance(dt);
+        std::cout << "preciceDt: " << preciceDt << std::endl;
         dt = std::min(preciceDt, nonLinearSolver.suggestTimeStepSize(timeLoop->timeStepSize()));
-
+        std::cout << "dt: " << dt << std::endl;
         // set new dt as suggested by the newton solver or by precice
-        timeLoop->setTimeStepSize(dt);
-        std::cout << "Checkpoint" << std::endl;
+        timeLoop->setTimeStepSize(dt); //TODO this is maybe not used unless advanceTimeStep is called ?
         
-        //TODO output every 0.1. currently does not exactly hit this.
-        if (timeLoop->timeStepIndex()==0 || int(timeLoop->time()/outputTimeInterval) > int(tOld/outputTimeInterval) || timeLoop->finished())
+        if (couplingInterface.hasToReadIterationCheckpoint()) { //for implicit coupling
+            // make the new solution the old solution
+            //            //Read checkpoint
+            //            freeFlowVtkWriter.write(vtkTime);
+            //            vtkTime += 1.;
+            x = xOld;
+            gridVariables->update(x);
+            gridVariables->advanceTimeStep();
+            couplingInterface.announceIterationCheckpointRead();
+        } else //coupling successful
+        {
+            //for now: output every time step
             vtkWriter.write(timeLoop->time());
-        tOld = timeLoop->time();
+            // advance the time loop to the next step
+            timeLoop->advanceTimeStep();
+            // report statistics of this time step
+            timeLoop->reportTimeStep();
+
+        }
+        std::cout << "Time: " << timeLoop->time() << std::endl;
 
     } while (!timeLoop->finished() && couplingInterface.isCouplingOngoing());
 
