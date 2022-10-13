@@ -175,7 +175,7 @@ int main(int argc, char** argv)
         readDataIDs[iter->c_str()] = couplingInterface.announceScalarQuantity(iter->c_str());
         std::cout << iter->c_str() << " Id: " << readDataIDs[iter->c_str()]<< std::endl; //TODO remove
     }
-    std::string writeDataName = "temperature";
+    std::string writeDataName = "concentration";//"temperature";
     int temperatureID = couplingInterface.announceScalarQuantity(writeDataName);
 
     std::vector<double> temperatures;
