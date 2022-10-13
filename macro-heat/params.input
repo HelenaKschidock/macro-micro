@@ -8,7 +8,7 @@ SolidHeatCapacity = 790
 [Grid]
 LowerLeft = 0 0
 UpperRight = 1 1
-Cells = 5 5
+Cells = 2 4
 
 [TimeLoop]
 TEnd = 1 
