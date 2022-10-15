@@ -109,8 +109,7 @@ public:
                            const Scv& scv,
                            FluidState& fluidState,
                            SolidState& solidState)
-    {
-        // retrieve temperature from solution vector, all phases have the same temperature
+    {   // retrieve temperature from solution vector, all phases have the same temperature
         Scalar T = problem.spatialParams().temperature(element, scv, elemSol);
         for(int phaseIdx=0; phaseIdx < FluidSystem::numPhases; ++phaseIdx)
         {
@@ -138,6 +137,7 @@ public:
     }
 
     //! The effective thermal conductivity is zero for isothermal models
+    //TODO whats up here. again, nonisothermal
     template<class ElemSol, class Problem, class Element, class Scv>
     void updateEffectiveThermalConductivity(const ElemSol &elemSol,
                                             const Problem &problem,
@@ -177,6 +177,7 @@ public:
     using SolidSystem = typename Traits::SolidSystem;
 
     //! The temperature is obtained from the problem as a constant for isothermal models
+    //TODO we should NOT be isothermal.
     template<class ElemSol, class Problem, class Element, class Scv>
     void updateTemperature(const ElemSol& elemSol,
                            const Problem& problem,
@@ -533,6 +534,8 @@ private:
         static_assert(Detail::isInertSolidPhase<SolidSystem>::value,
             "solidThermalConductivity can only be overwritten in the spatial params when the solid system is a simple InertSolidPhase\n"
             "If you select a proper solid system, the solid thermal conductivity will be computed as stated in the solid system!");
+        std::cout << "CHECK: solidThermalConductivity called!" << std::endl;
+        //TODO this is never called. is our system InertSolidPhase?
         return problem.spatialParams().solidThermalConductivity(element, scv);
     }
 

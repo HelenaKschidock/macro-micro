@@ -147,13 +147,14 @@ public:
      */
     PrimaryVariables dirichletAtPos(const GlobalPosition &globalPos) const
     {   //TODO currently hardcoded
-        PrimaryVariables priVars(initial_()); // because only called in dirichlet boundary cells -> always overwritten
+        PrimaryVariables priVars(initial_()); // because only called in dirichlet boundary cells -> always overwritten (4 times in our case: 2 top, 2 bot)
         if (globalPos[1] < eps_){
             priVars[temperatureIdx] = getParam<Scalar>("BoundaryConditions.BcBottom");
         }
         if (globalPos[1] > this->gridGeometry().bBoxMax()[1] - eps_){
             priVars[temperatureIdx] = getParam<Scalar>("BoundaryConditions.BcTop");
         }
+        std::cout << priVars << std::endl;
         return priVars;
     }
 
@@ -187,7 +188,6 @@ private:
         PrimaryVariables priVars(0.0);
         priVars[pressureIdx] = 1.0e5; //TODO
         priVars[temperatureIdx] = getParam<Scalar>("InitialConditions.Temperature");
-        std::cout << "initial temp= " << priVars[temperatureIdx] << std::endl;
         return priVars;
     }
     static constexpr Scalar eps_ = 1e-6;

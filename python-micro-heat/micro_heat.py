@@ -69,7 +69,7 @@ class MicroSimulation:
         target_porosity = 1 - math.pi * self._r_initial ** 2
         print("Target amount of void space = {}".format(target_porosity))
 
-        dt_initial = 1E-3
+        dt_initial = 1E-3 #1E-3
 
         # Solve phase field problem for a few steps to get the correct phase field
         psi = 0
@@ -266,7 +266,7 @@ class MicroSimulation:
 
 def main():
     micro_problem = MicroSimulation(0)
-    dt = 1e-3
+    dt = 1e-1#1e-3
     micro_problem.initialize()
     concentrations = [0.5, 0.4]
     t = 0.0

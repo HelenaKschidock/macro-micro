@@ -169,7 +169,7 @@ int main(int argc, char** argv)
 
     //initialize preCICE
     auto numberOfElements = coords.size()/dim; //number of Elents (cells)
-    const double preciceDt = couplingInterface.setMeshAndInitialize(
+    double preciceDt = couplingInterface.setMeshAndInitialize(
         meshName, numberOfElements, coords);
     couplingInterface.createIndexMapping(coupledElementIdxs); //couples between dumux element indices and preciceIndices; 
     //coupling data
@@ -247,7 +247,6 @@ int main(int argc, char** argv)
     NewtonSolver nonLinearSolver(assembler, linearSolver);
     // time loop
     std::cout << "Time Loop starts" << std::endl;
-    const auto outputTimeInterval = getParam<Scalar>("TimeLoop.TOutput");
     timeLoop->start(); do
     {   // write checkpoint
         if (couplingInterface.hasToWriteIterationCheckpoint()) {
@@ -283,10 +282,9 @@ int main(int argc, char** argv)
         // linearize & solve
         nonLinearSolver.solve(x, *timeLoop);
 
-        temperatures.clear(); //TODO maybe more efficient ot just overwrite
         std::cout << "temperatures: " << std::endl;
         for (int solIdx=0; solIdx< numberOfElements; ++solIdx){
-            temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]);
+            temperatures[solIdx] = x[solIdx][problem->returnTemperatureIdx()];
             std::cout << x[solIdx][problem->returnTemperatureIdx()] << std::endl;
         };
 
@@ -294,7 +292,7 @@ int main(int argc, char** argv)
         couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);      
 
         //advance precice
-        const double preciceDt = couplingInterface.advance(dt);
+        preciceDt = couplingInterface.advance(dt);
         std::cout << "preciceDt: " << preciceDt << std::endl;
         dt = std::min(preciceDt, nonLinearSolver.suggestTimeStepSize(timeLoop->timeStepSize()));
         std::cout << "dt: " << dt << std::endl;
