@@ -114,6 +114,10 @@ int main(int argc, char** argv)
     using GridGeometry = GetPropType<TypeTag, Properties::GridGeometry>;
     auto gridGeometry = std::make_shared<GridGeometry>(leafGridView);
 
+    //the spatial params (made available to update precice IDs)
+    using SpatialParams = GetPropType<TypeTag, Properties::SpatialParams>;
+    auto spatialParams = std::make_shared<SpatialParams>(gridGeometry);
+
     // the problem (initial and boundary conditions)
     using Problem = GetPropType<TypeTag, Properties::Problem>;
     const std::string paramGroup = GridGeometry::discMethod == DiscretizationMethods::ccmpfa ? "MpfaTest" : ""; //checks if CCMpfa, here CCTpfa: paramGroup = None
@@ -142,9 +146,6 @@ int main(int argc, char** argv)
     std::string meshName = "macro-mesh";
     std::vector<double> coords;  //( dim * nSCV );
     std::vector<int> coupledElementIdxs;
-    using GlobalPosition = typename GridGeometry::GlobalCoordinate;
-    const auto lowerLeft = getParamFromGroup<GlobalPosition>(paramGroup, "Grid.LowerLeft", GlobalPosition(0.0));
-    const auto upperRight = getParamFromGroup<GlobalPosition>(paramGroup, "Grid.UpperRight");
     const auto cells = getParam<std::array<int, 2>>("Grid.Cells", std::array<int, 2>{{1, 1}});
     std::cout << "coordinates: " << std::endl;
     //coordinate loop (created vectors are 1D)
@@ -173,7 +174,7 @@ int main(int argc, char** argv)
     couplingInterface.createIndexMapping(coupledElementIdxs); //couples between dumux element indices and preciceIndices; 
     //coupling data
     std::list<std::string> readDataNames = {"k_00", "k_01", "k_10", "k_11", "porosity"};
-    std::map<std::string,int> readDataIDs;
+    std::map<std::string,size_t> readDataIDs;
     for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
         readDataIDs[iter->c_str()] = couplingInterface.announceScalarQuantity(iter->c_str()); //Ids are 0 to 4 in order of readDataNames
     }
@@ -188,8 +189,8 @@ int main(int argc, char** argv)
     std::vector<double> k_11;
     std::map<std::string, std::vector<double>> conductivityData {{"k_00", k_00}, {"k_01", k_01}, {"k_10", k_10}, {"k_11", k_11}};
 
-    problem->updatePreciceDataIds(readDataIDs, temperatureID);    
- 
+    spatialParams->updatePreciceDataIds(); 
+
     // get some time loop parameters
     const auto tEnd = getParam<Scalar>("TimeLoop.TEnd");
     auto dt = preciceDt;
@@ -205,14 +206,6 @@ int main(int argc, char** argv)
     auto gridVariables = std::make_shared<GridVariables>(problem, gridGeometry);
     gridVariables->init(x);
 
-    // intialize the vtk output module
-    using IOFields = GetPropType<TypeTag, Properties::IOFields>;
-    VtkOutputModule<GridVariables, SolutionVector> vtkWriter(*gridVariables, x, problem->name());
-    using VelocityOutput = GetPropType<TypeTag, Properties::VelocityOutput>;
-    vtkWriter.addVelocityOutput(std::make_shared<VelocityOutput>(*gridVariables));
-    IOFields::initOutputModule(vtkWriter); // Add model specific output fields
-    vtkWriter.write(0.0); //restart time = 0 
-
     //initialize coupling data
     for (int solIdx=0; solIdx< numberOfElements; ++solIdx){
         temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]);
@@ -224,7 +217,16 @@ int main(int argc, char** argv)
         couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);
         couplingInterface.announceInitialDataWritten();
     }
+
     couplingInterface.initializeData();
+
+    // intialize the vtk output module
+    using IOFields = GetPropType<TypeTag, Properties::IOFields>;
+    VtkOutputModule<GridVariables, SolutionVector> vtkWriter(*gridVariables, x, problem->name());
+    using VelocityOutput = GetPropType<TypeTag, Properties::VelocityOutput>;
+    vtkWriter.addVelocityOutput(std::make_shared<VelocityOutput>(*gridVariables));
+    IOFields::initOutputModule(vtkWriter); // Add model specific output fields
+    vtkWriter.write(0.0); //restart time = 0 
 
     // output every vtkOutputInterval time step
     const int vtkOutputInterval = getParam<int>("Problem.OutputInterval");
@@ -243,7 +245,6 @@ int main(int argc, char** argv)
     // the non-linear solver
     using NewtonSolver = Dumux::NewtonSolver<Assembler, LinearSolver>;
     NewtonSolver nonLinearSolver(assembler, linearSolver);
-
     // time loop
     std::cout << "Time Loop starts" << std::endl;
     const auto outputTimeInterval = getParam<Scalar>("TimeLoop.TOutput");
@@ -253,12 +254,27 @@ int main(int argc, char** argv)
             xOld = x;
             couplingInterface.announceIterationCheckpointWritten();
         }
-
         //Read porosity and conductivity data from other solver
+        //TODO make less redundant
         for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
             couplingInterface.readQuantityFromOtherSolver(readDataIDs[iter->c_str()], QuantityType::Scalar);
         }
-        //TODO analogously for conductivities
+        k_00 = couplingInterface.getQuantityVector(readDataIDs["k_00"]);
+        for (const auto &i : coupledElementIdxs){ 
+            couplingInterface.writeScalarQuantityOnFace(readDataIDs["k_00"], i, k_00[i]);//writes on element not on face
+        }
+        k_10 = couplingInterface.getQuantityVector(readDataIDs["k_10"]);
+        for (const auto &i : coupledElementIdxs){ 
+            couplingInterface.writeScalarQuantityOnFace(readDataIDs["k_10"], i, k_10[i]);//writes on element not on face
+        }
+        k_01 = couplingInterface.getQuantityVector(readDataIDs["k_01"]);
+        for (const auto &i : coupledElementIdxs){ 
+            couplingInterface.writeScalarQuantityOnFace(readDataIDs["k_01"], i, k_01[i]);//writes on element not on face
+        }
+        k_11 = couplingInterface.getQuantityVector(readDataIDs["k_11"]);
+        for (const auto &i : coupledElementIdxs){ 
+            couplingInterface.writeScalarQuantityOnFace(readDataIDs["k_11"], i, k_11[i]);//writes on element not on face
+        }
         porosities = couplingInterface.getQuantityVector(readDataIDs["porosity"]);
         for (const auto &i : coupledElementIdxs){ 
             couplingInterface.writeScalarQuantityOnFace(readDataIDs["porosity"], i, porosities[i]);//writes on element not on face
@@ -268,8 +284,10 @@ int main(int argc, char** argv)
         nonLinearSolver.solve(x, *timeLoop);
 
         temperatures.clear(); //TODO maybe more efficient ot just overwrite
+        std::cout << "temperatures: " << std::endl;
         for (int solIdx=0; solIdx< numberOfElements; ++solIdx){
             temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]);
+            std::cout << x[solIdx][problem->returnTemperatureIdx()] << std::endl;
         };
 
         couplingInterface.writeQuantityVector(temperatureID, temperatures);

@@ -80,15 +80,13 @@ public:
     Scalar porosity(const Element& element, 
                     const SubControlVolume& scv, 
                     const ElementSolution& elemSol) const
-    {   //TODO make sure element indices correspond to quantityvector
-        //TODO check WHEN this function is called (should be AFTER communication)
+    {   
         return couplingInterface_.getScalarQuantityOnFace(porosityId_,scv.elementIndex());
     } 
 
     DimWorldMatrix solidThermalConductivity(const Element &element,
                                     const SubControlVolume& scv) const
-    { 
-        DimWorldMatrix K;
+    {   DimWorldMatrix K;
         K[0][0] = couplingInterface_.getScalarQuantityOnFace(k00Id_,scv.elementIndex());
         K[0][1] = couplingInterface_.getScalarQuantityOnFace(k01Id_,scv.elementIndex());
         K[1][0] = couplingInterface_.getScalarQuantityOnFace(k10Id_,scv.elementIndex());
@@ -96,14 +94,24 @@ public:
         return K; 
     }
 
+    void updatePreciceDataIds() 
+    {   //TODO currently only changes the values within this function, they revert back to init value! :(
+        porosityId_ = couplingInterface_.getIdFromName("porosity");
+        k00Id_ = couplingInterface_.getIdFromName("k_00");
+        k01Id_ = couplingInterface_.getIdFromName("k_01");
+        k10Id_ = couplingInterface_.getIdFromName("k_10");
+        k11Id_ = couplingInterface_.getIdFromName("k_11");
+        dataIdsSet = true;
+    }
+
 private:
     Dumux::Precice::CouplingAdapter &couplingInterface_;
-    int porosityId_ = 0; //readDataIDs["porosity"] TODO check, also this is hardcoded in an ugly way
-    //TODO check
-    int k00Id_ = 1;
-    int k01Id_ = 2;
-    int k10Id_ = 3;
-    int k11Id_ = 4;
+    size_t porosityId_ = 4; 
+    size_t k00Id_ = 0; 
+    size_t k01Id_ = 1;
+    size_t k10Id_ = 2;
+    size_t k11Id_ = 3;
+    bool dataIdsSet = false;
 };
 
 } // end namespace Dumux

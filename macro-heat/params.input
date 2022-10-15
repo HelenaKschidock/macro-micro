@@ -28,11 +28,11 @@ BcTypeTop = dirichlet
 BcTypeBottom = dirichlet
 BcLeft = 0
 BcRight = 0
-BcTop = 273
-BcBottom = 400
+BcTop = 273.0
+BcBottom = 400.0
 
 [InitialConditions]
-Temperature = 273
+Temperature = 273.0
 Phi = 0.5 # porosity
 k = 1.0 # SolidThermalConductivity
 

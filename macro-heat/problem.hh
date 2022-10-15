@@ -100,14 +100,6 @@ public:
     }
 
 
-    void updatePreciceDataIds(std::map<std::string,int> readDataIDs, int temperatureID) //or do i overwrite temperatureIdx here?
-    {
-        temperatureId_ = temperatureID;
-        porosityId_ = readDataIDs["porosity"];
-        //TODO conductivityID
-        dataIdsWereSet_ = true;
-    }
-
     /*!
      * \name Problem parameters
      */
@@ -155,11 +147,13 @@ public:
      */
     PrimaryVariables dirichletAtPos(const GlobalPosition &globalPos) const
     {   //TODO currently hardcoded
-        PrimaryVariables priVars(initial_());
-        if (globalPos[1] < eps_)
+        PrimaryVariables priVars(initial_()); // because only called in dirichlet boundary cells -> always overwritten
+        if (globalPos[1] < eps_){
             priVars[temperatureIdx] = getParam<Scalar>("BoundaryConditions.BcBottom");
-        if (globalPos[1] > this->gridGeometry().bBoxMax()[1] - eps_)
+        }
+        if (globalPos[1] > this->gridGeometry().bBoxMax()[1] - eps_){
             priVars[temperatureIdx] = getParam<Scalar>("BoundaryConditions.BcTop");
+        }
         return priVars;
     }
 
@@ -180,7 +174,7 @@ public:
      */
     PrimaryVariables initialAtPos(const GlobalPosition &globalPos) const
     {
-        return initial_(); //called 25times
+        return initial_();
     }
 
 
@@ -192,15 +186,12 @@ private:
     {
         PrimaryVariables priVars(0.0);
         priVars[pressureIdx] = 1.0e5; //TODO
-        priVars[temperatureIdx] = getParam<Scalar>("InitialConditions.Temperature"); //TODO
+        priVars[temperatureIdx] = getParam<Scalar>("InitialConditions.Temperature");
+        std::cout << "initial temp= " << priVars[temperatureIdx] << std::endl;
         return priVars;
     }
     static constexpr Scalar eps_ = 1e-6;
     std::string name_;
-    size_t temperatureId_; 
-    size_t porosityId_;
-    //size_t conductivity TODO
-    bool dataIdsWereSet_;
 };
 
 } // end namespace Dumux
