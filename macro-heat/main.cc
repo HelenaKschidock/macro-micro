@@ -132,24 +132,24 @@ int main(int argc, char** argv)
         preciceConfigFilename = argv[argc - 1];
 
     auto &couplingInterface = Dumux::Precice::CouplingAdapter::getInstance();
+    const int dim = int(leafGridView.dimension); 
     if (getParam<bool>("Precice.RunWithCoupling") == true){
         couplingInterface.announceSolver("Macro-heat", preciceConfigFilename,
                                      mpiHelper.rank(), mpiHelper.size());
         //verify that dimensions match
-        const int dim = couplingInterface.getDimensions();
-        std::cout << "coupling Dims = " << dim << " , leafgrid dims = " << int(leafGridView.dimension) << std::endl;
-        if (dim != int(leafGridView.dimension)){
+        const int preciceDim = couplingInterface.getDimensions();
+        std::cout << "coupling Dims = " << dim << " , leafgrid dims = " << dim << std::endl;
+        if (preciceDim != dim){
             DUNE_THROW(Dune::InvalidStateException, "Dimensions do not match");
         }
     }
-    const int dim = 2; //TODO hardcoded
 
     //get mesh coordinates 
     std::string meshName = "macro-mesh";
     std::vector<double> coords;  //( dim * nSCV );
     std::vector<int> coupledElementIdxs;
     const auto cells = getParam<std::array<int, 2>>("Grid.Cells", std::array<int, 2>{{1, 1}});
-    std::cout << "coordinates: " << std::endl;
+    std::cout << "Coordinates: " << std::endl;
     //coordinate loop (created vectors are 1D)
     for (const auto &element : elements(leafGridView)) {
         auto fvGeometry = localView(*gridGeometry); 
@@ -158,7 +158,6 @@ int main(int argc, char** argv)
             coupledElementIdxs.push_back(scv.elementIndex());
             const auto &pos = scv.center();
             //cell centers
-            //TODO: check that order is correct (likely not the case)
             for (const auto p : pos){
                 coords.push_back(p);
                 std::cout <<  p << "  ";
@@ -180,27 +179,24 @@ int main(int argc, char** argv)
     //coupling data
     std::list<std::string> readDataNames = {"k_00", "k_01", "k_10", "k_11", "porosity"};
     std::map<std::string,size_t> readDataIDs;
-    if (getParam<bool>("Precice.RunWithCoupling") == true){
-        for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
-            readDataIDs[iter->c_str()] = couplingInterface.announceScalarQuantity(iter->c_str()); //Ids are 0 to 4 in order of readDataNames
-        }
-    }
     std::string writeDataName = "concentration";//"temperature";
     int temperatureID;
-    if (getParam<bool>("Precice.RunWithCoupling") == true){
-        temperatureID = couplingInterface.announceScalarQuantity(writeDataName);
-    }
     std::vector<double> temperatures;
     std::vector<double> porosities;
     std::vector<double> k_00;
     std::vector<double> k_01;
     std::vector<double> k_10;
     std::vector<double> k_11;
-    std::map<std::string, std::vector<double>> conductivityData {{"k_00", k_00}, {"k_01", k_01}, {"k_10", k_10}, {"k_11", k_11}};
+    std::map<std::string, std::vector<double>> readData {{"k_00", k_00}, {"k_01", k_01}, {"k_10", k_10}, {"k_11", k_11}, {"porosity", porosities}};
 
     if (getParam<bool>("Precice.RunWithCoupling") == true){
+        for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
+            readDataIDs[iter->c_str()] = couplingInterface.announceScalarQuantity(iter->c_str()); //Ids are 0 to 4 in order of readDataNames
+        }
+        temperatureID = couplingInterface.announceScalarQuantity(writeDataName);
         spatialParams->updatePreciceDataIds(); 
     }
+
     // get some time loop parameters
     const auto tEnd = getParam<Scalar>("TimeLoop.TEnd");
     double dt;
@@ -276,29 +272,12 @@ int main(int argc, char** argv)
                 couplingInterface.announceIterationCheckpointWritten();
             }
             //Read porosity and conductivity data from other solver
-            //TODO make less redundant
             for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
                 couplingInterface.readQuantityFromOtherSolver(readDataIDs[iter->c_str()], QuantityType::Scalar);
-            }
-            k_00 = couplingInterface.getQuantityVector(readDataIDs["k_00"]);
-            for (const auto &i : coupledElementIdxs){ 
-                couplingInterface.writeScalarQuantityOnFace(readDataIDs["k_00"], i, k_00[i]);//writes on element not on face
-            }
-            k_10 = couplingInterface.getQuantityVector(readDataIDs["k_10"]);
-            for (const auto &i : coupledElementIdxs){ 
-                couplingInterface.writeScalarQuantityOnFace(readDataIDs["k_10"], i, k_10[i]);//writes on element not on face
-            }
-            k_01 = couplingInterface.getQuantityVector(readDataIDs["k_01"]);
-            for (const auto &i : coupledElementIdxs){ 
-                couplingInterface.writeScalarQuantityOnFace(readDataIDs["k_01"], i, k_01[i]);//writes on element not on face
-            }
-            k_11 = couplingInterface.getQuantityVector(readDataIDs["k_11"]);
-            for (const auto &i : coupledElementIdxs){ 
-                couplingInterface.writeScalarQuantityOnFace(readDataIDs["k_11"], i, k_11[i]);//writes on element not on face
-            }
-            porosities = couplingInterface.getQuantityVector(readDataIDs["porosity"]);
-            for (const auto &i : coupledElementIdxs){ 
-                couplingInterface.writeScalarQuantityOnFace(readDataIDs["porosity"], i, porosities[i]);//writes on element not on face
+                readData[iter->c_str()] = couplingInterface.getQuantityVector(readDataIDs[iter->c_str()]);
+                for (const auto &i : coupledElementIdxs){
+                    couplingInterface.writeScalarQuantityOnFace(readDataIDs[iter->c_str()], i, readData[iter->c_str()][i]);//writes on element not on face
+                }
             }
         }
         std::cout << "Solver starts" << std::endl;
@@ -325,10 +304,10 @@ int main(int argc, char** argv)
         }
         std::cout << "dt: " << dt << std::endl;
         // set new dt as suggested by the newton solver or by precice
-        timeLoop->setTimeStepSize(dt); //TODO this is maybe not used unless advanceTimeStep is called ?
+        timeLoop->setTimeStepSize(dt);
         
         if (getParam<bool>("Precice.RunWithCoupling") == true){
-            if (couplingInterface.hasToReadIterationCheckpoint()) { //for implicit coupling
+            if (couplingInterface.hasToReadIterationCheckpoint()) {
                 // make the new solution the old solution
                 //            //Read checkpoint
                 //            freeFlowVtkWriter.write(vtkTime);
@@ -338,9 +317,7 @@ int main(int argc, char** argv)
                 gridVariables->advanceTimeStep();
                 couplingInterface.announceIterationCheckpointRead();
             } else //coupling successful
-            {   
-                //output every outputinterval steps
-                n += 1;
+            {   n += 1;
                 if (n == vtkOutputInterval){
                     vtkWriter.write(timeLoop->time());
                     n = 0;
@@ -350,7 +327,6 @@ int main(int argc, char** argv)
                 timeLoop->advanceTimeStep();
                 // report statistics of this time step
                 timeLoop->reportTimeStep();
-
             }
         }
         else{
