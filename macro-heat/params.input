@@ -1,8 +1,8 @@
 [Component]
-SolidDensity = 1000.0 #1.0 rho_s 
+SolidDensity = 1.0 #rho_s 
 SolidThermalConductivity = 1.0 #k_s
 SolidHeatCapacity = 790
-LiquidDensity = 2000.0 #2.0 rho_g
+LiquidDensity = 2.0 #rho_g
 LiquidThermalConductivity = 1.0 #k_g
 
 [Grid]
@@ -11,7 +11,7 @@ UpperRight = 1 1
 Cells = 1 3
 
 [TimeLoop]
-TEnd = 1000
+TEnd = 0.25
 
 [Problem]
 Name = macro-heat
