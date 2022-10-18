@@ -68,7 +68,7 @@ public:
      * \param globalPos The global position
      */
     PermeabilityType permeabilityAtPos(const GlobalPosition& globalPos) const
-    {return 1e-10; } //TODO Does this also vary? 
+    {return getParam<Scalar>("Problem.Permeability"); } //TODO Does this also vary?  1e-10
 
     /*!
      * \brief Defines the porosity \f$\mathrm{[-]}\f$.
@@ -84,7 +84,7 @@ public:
             return couplingInterface_.getScalarQuantityOnFace(porosityId_,scv.elementIndex());
         }
         else
-            return 0.5; //TODO hardcoded
+            return getParam<Scalar>("Problem.DefaultPorosity"); 
     } 
 
     DimWorldMatrix solidThermalConductivity(const Element &element,

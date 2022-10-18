@@ -6,17 +6,19 @@ SolidHeatCapacity = 1.0
 [Grid]
 LowerLeft = 0 0
 UpperRight = 1 1
-Cells = 1 3
+Cells = 1 10
 
 [TimeLoop]
-TEnd = 10 #0.25
+TEnd = 100000 #0.25
 OutputInterval = 1 # output after every n timesteps 
-MaxDt = 0.01 #0.01
+MaxDt = 1e10 #0.01
 InitialDt = 0.01
 
 [Problem]
 Name = macro-heat
 EnableGravity = false
+Permeability = 1
+DefaultPorosity = 0.5
 
 [BoundaryConditions]
 BcTypeLeft = neumann
@@ -32,4 +34,4 @@ BcBottom = 400.0
 Temperature = 273.0
 
 [Precice]
-RunWithCoupling = true
+RunWithCoupling = false
