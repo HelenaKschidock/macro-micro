@@ -208,7 +208,7 @@ int main(int argc, char** argv)
         dt = preciceDt;
     }
     else{
-        dt = getParam<Scalar>("TimeLoop.MaxDt");
+        dt = getParam<Scalar>("TimeLoop.InitialDt");
     }
 
     // the solution vector (initialized with zero)
