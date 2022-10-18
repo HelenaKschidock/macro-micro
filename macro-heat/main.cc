@@ -132,15 +132,17 @@ int main(int argc, char** argv)
         preciceConfigFilename = argv[argc - 1];
 
     auto &couplingInterface = Dumux::Precice::CouplingAdapter::getInstance();
-    couplingInterface.announceSolver("Macro-heat", preciceConfigFilename,
+    if (getParam<bool>("Precice.RunWithCoupling") == true){
+        couplingInterface.announceSolver("Macro-heat", preciceConfigFilename,
                                      mpiHelper.rank(), mpiHelper.size());
-    
-    //verify that dimensions match
-    const int dim = couplingInterface.getDimensions();
-    std::cout << "coupling Dims = " << dim << " , leafgrid dims = " << int(leafGridView.dimension) << std::endl;
-    if (dim != int(leafGridView.dimension)){
-        DUNE_THROW(Dune::InvalidStateException, "Dimensions do not match");
+        //verify that dimensions match
+        const int dim = couplingInterface.getDimensions();
+        std::cout << "coupling Dims = " << dim << " , leafgrid dims = " << int(leafGridView.dimension) << std::endl;
+        if (dim != int(leafGridView.dimension)){
+            DUNE_THROW(Dune::InvalidStateException, "Dimensions do not match");
+        }
     }
+    const int dim = 2; //TODO hardcoded
 
     //get mesh coordinates 
     std::string meshName = "macro-mesh";
@@ -168,19 +170,26 @@ int main(int argc, char** argv)
     std::cout << "Number of Coupled Cells:" << coupledElementIdxs.size() << std::endl;
 
     //initialize preCICE
+    double preciceDt;
     auto numberOfElements = coords.size()/dim; //number of Elents (cells)
-    double preciceDt = couplingInterface.setMeshAndInitialize(
-        meshName, numberOfElements, coords);
-    couplingInterface.createIndexMapping(coupledElementIdxs); //couples between dumux element indices and preciceIndices; 
+    if (getParam<bool>("Precice.RunWithCoupling") == true){
+        preciceDt = couplingInterface.setMeshAndInitialize(
+            meshName, numberOfElements, coords);
+        couplingInterface.createIndexMapping(coupledElementIdxs); //couples between dumux element indices and preciceIndices; 
+    }
     //coupling data
     std::list<std::string> readDataNames = {"k_00", "k_01", "k_10", "k_11", "porosity"};
     std::map<std::string,size_t> readDataIDs;
-    for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
-        readDataIDs[iter->c_str()] = couplingInterface.announceScalarQuantity(iter->c_str()); //Ids are 0 to 4 in order of readDataNames
+    if (getParam<bool>("Precice.RunWithCoupling") == true){
+        for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
+            readDataIDs[iter->c_str()] = couplingInterface.announceScalarQuantity(iter->c_str()); //Ids are 0 to 4 in order of readDataNames
+        }
     }
     std::string writeDataName = "concentration";//"temperature";
-    int temperatureID = couplingInterface.announceScalarQuantity(writeDataName);
-
+    int temperatureID;
+    if (getParam<bool>("Precice.RunWithCoupling") == true){
+        temperatureID = couplingInterface.announceScalarQuantity(writeDataName);
+    }
     std::vector<double> temperatures;
     std::vector<double> porosities;
     std::vector<double> k_00;
@@ -189,11 +198,18 @@ int main(int argc, char** argv)
     std::vector<double> k_11;
     std::map<std::string, std::vector<double>> conductivityData {{"k_00", k_00}, {"k_01", k_01}, {"k_10", k_10}, {"k_11", k_11}};
 
-    spatialParams->updatePreciceDataIds(); 
-
+    if (getParam<bool>("Precice.RunWithCoupling") == true){
+        spatialParams->updatePreciceDataIds(); 
+    }
     // get some time loop parameters
     const auto tEnd = getParam<Scalar>("TimeLoop.TEnd");
-    auto dt = preciceDt;
+    double dt;
+    if (getParam<bool>("Precice.RunWithCoupling") == true){
+        dt = preciceDt;
+    }
+    else{
+        dt = getParam<Scalar>("TimeLoop.MaxDt");
+    }
 
     // the solution vector (initialized with zero)
     using SolutionVector = GetPropType<TypeTag, Properties::SolutionVector>;
@@ -210,15 +226,16 @@ int main(int argc, char** argv)
     for (int solIdx=0; solIdx< numberOfElements; ++solIdx){
         temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]);
     };
-
-    couplingInterface.writeQuantityVector(temperatureID, temperatures);
-    if (couplingInterface.hasToWriteInitialData()){
+    if (getParam<bool>("Precice.RunWithCoupling") == true){
         couplingInterface.writeQuantityVector(temperatureID, temperatures);
-        couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);
-        couplingInterface.announceInitialDataWritten();
+        if (couplingInterface.hasToWriteInitialData()){
+            couplingInterface.writeQuantityVector(temperatureID, temperatures);
+            couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);
+            couplingInterface.announceInitialDataWritten();
+        }
+    
+        couplingInterface.initializeData();
     }
-
-    couplingInterface.initializeData();
 
     // intialize the vtk output module
     using IOFields = GetPropType<TypeTag, Properties::IOFields>;
@@ -249,35 +266,40 @@ int main(int argc, char** argv)
     int n = 0;
     std::cout << "Time Loop starts" << std::endl;
     timeLoop->start(); do
-    {   // write checkpoint
-        if (couplingInterface.hasToWriteIterationCheckpoint()) {
-            xOld = x;
-            couplingInterface.announceIterationCheckpointWritten();
-        }
-        //Read porosity and conductivity data from other solver
-        //TODO make less redundant
-        for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
-            couplingInterface.readQuantityFromOtherSolver(readDataIDs[iter->c_str()], QuantityType::Scalar);
-        }
-        k_00 = couplingInterface.getQuantityVector(readDataIDs["k_00"]);
-        for (const auto &i : coupledElementIdxs){ 
-            couplingInterface.writeScalarQuantityOnFace(readDataIDs["k_00"], i, k_00[i]);//writes on element not on face
-        }
-        k_10 = couplingInterface.getQuantityVector(readDataIDs["k_10"]);
-        for (const auto &i : coupledElementIdxs){ 
-            couplingInterface.writeScalarQuantityOnFace(readDataIDs["k_10"], i, k_10[i]);//writes on element not on face
-        }
-        k_01 = couplingInterface.getQuantityVector(readDataIDs["k_01"]);
-        for (const auto &i : coupledElementIdxs){ 
-            couplingInterface.writeScalarQuantityOnFace(readDataIDs["k_01"], i, k_01[i]);//writes on element not on face
-        }
-        k_11 = couplingInterface.getQuantityVector(readDataIDs["k_11"]);
-        for (const auto &i : coupledElementIdxs){ 
-            couplingInterface.writeScalarQuantityOnFace(readDataIDs["k_11"], i, k_11[i]);//writes on element not on face
-        }
-        porosities = couplingInterface.getQuantityVector(readDataIDs["porosity"]);
-        for (const auto &i : coupledElementIdxs){ 
-            couplingInterface.writeScalarQuantityOnFace(readDataIDs["porosity"], i, porosities[i]);//writes on element not on face
+    {   if (getParam<bool>("Precice.RunWithCoupling") == true){
+            if (couplingInterface.isCouplingOngoing()== false){
+                break;
+            }
+            // write checkpoint
+            if (couplingInterface.hasToWriteIterationCheckpoint()) {
+                xOld = x;
+                couplingInterface.announceIterationCheckpointWritten();
+            }
+            //Read porosity and conductivity data from other solver
+            //TODO make less redundant
+            for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
+                couplingInterface.readQuantityFromOtherSolver(readDataIDs[iter->c_str()], QuantityType::Scalar);
+            }
+            k_00 = couplingInterface.getQuantityVector(readDataIDs["k_00"]);
+            for (const auto &i : coupledElementIdxs){ 
+                couplingInterface.writeScalarQuantityOnFace(readDataIDs["k_00"], i, k_00[i]);//writes on element not on face
+            }
+            k_10 = couplingInterface.getQuantityVector(readDataIDs["k_10"]);
+            for (const auto &i : coupledElementIdxs){ 
+                couplingInterface.writeScalarQuantityOnFace(readDataIDs["k_10"], i, k_10[i]);//writes on element not on face
+            }
+            k_01 = couplingInterface.getQuantityVector(readDataIDs["k_01"]);
+            for (const auto &i : coupledElementIdxs){ 
+                couplingInterface.writeScalarQuantityOnFace(readDataIDs["k_01"], i, k_01[i]);//writes on element not on face
+            }
+            k_11 = couplingInterface.getQuantityVector(readDataIDs["k_11"]);
+            for (const auto &i : coupledElementIdxs){ 
+                couplingInterface.writeScalarQuantityOnFace(readDataIDs["k_11"], i, k_11[i]);//writes on element not on face
+            }
+            porosities = couplingInterface.getQuantityVector(readDataIDs["porosity"]);
+            for (const auto &i : coupledElementIdxs){ 
+                couplingInterface.writeScalarQuantityOnFace(readDataIDs["porosity"], i, porosities[i]);//writes on element not on face
+            }
         }
         std::cout << "Solver starts" << std::endl;
         // linearize & solve
@@ -288,52 +310,74 @@ int main(int argc, char** argv)
             temperatures[solIdx] = x[solIdx][problem->returnTemperatureIdx()];
             std::cout << x[solIdx][problem->returnTemperatureIdx()] << std::endl;
         };
-
-        couplingInterface.writeQuantityVector(temperatureID, temperatures);
-        couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);      
-
+        if (getParam<bool>("Precice.RunWithCoupling") == true){
+            couplingInterface.writeQuantityVector(temperatureID, temperatures);
+            couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);      
+        }
         //advance precice
-        preciceDt = couplingInterface.advance(dt);
-        std::cout << "preciceDt: " << preciceDt << std::endl;
-        dt = std::min(preciceDt, nonLinearSolver.suggestTimeStepSize(timeLoop->timeStepSize()));
+        if (getParam<bool>("Precice.RunWithCoupling") == true){
+            preciceDt = couplingInterface.advance(dt);
+            std::cout << "preciceDt: " << preciceDt << std::endl;
+            dt = std::min(preciceDt, std::min(nonLinearSolver.suggestTimeStepSize(timeLoop->timeStepSize()), getParam<Scalar>("TimeLoop.MaxDt")));
+        }
+        else{
+            dt = std::min(nonLinearSolver.suggestTimeStepSize(timeLoop->timeStepSize()), getParam<Scalar>("TimeLoop.MaxDt"));
+        }
         std::cout << "dt: " << dt << std::endl;
         // set new dt as suggested by the newton solver or by precice
         timeLoop->setTimeStepSize(dt); //TODO this is maybe not used unless advanceTimeStep is called ?
         
-        if (couplingInterface.hasToReadIterationCheckpoint()) { //for implicit coupling
-            // make the new solution the old solution
-            //            //Read checkpoint
-            //            freeFlowVtkWriter.write(vtkTime);
-            //            vtkTime += 1.;
-            x = xOld;
-            gridVariables->update(x);
-            gridVariables->advanceTimeStep();
-            couplingInterface.announceIterationCheckpointRead();
-        } else //coupling successful
-        {   
+        if (getParam<bool>("Precice.RunWithCoupling") == true){
+            if (couplingInterface.hasToReadIterationCheckpoint()) { //for implicit coupling
+                // make the new solution the old solution
+                //            //Read checkpoint
+                //            freeFlowVtkWriter.write(vtkTime);
+                //            vtkTime += 1.;
+                x = xOld;
+                gridVariables->update(x);
+                gridVariables->advanceTimeStep();
+                couplingInterface.announceIterationCheckpointRead();
+            } else //coupling successful
+            {   
+                //output every outputinterval steps
+                n += 1;
+                if (n == vtkOutputInterval){
+                    vtkWriter.write(timeLoop->time());
+                    n = 0;
+                }
+                gridVariables->advanceTimeStep();
+                // advance the time loop to the next step
+                timeLoop->advanceTimeStep();
+                // report statistics of this time step
+                timeLoop->reportTimeStep();
+
+            }
+        }
+        else{
             //output every outputinterval steps
             n += 1;
             if (n == vtkOutputInterval){
                 vtkWriter.write(timeLoop->time());
                 n = 0;
             }
+            gridVariables->advanceTimeStep();
             // advance the time loop to the next step
             timeLoop->advanceTimeStep();
             // report statistics of this time step
             timeLoop->reportTimeStep();
-
         }
         std::cout << "Time: " << timeLoop->time() << std::endl;
 
-    } while (!timeLoop->finished() && couplingInterface.isCouplingOngoing());
+    } while (!timeLoop->finished());
 
     timeLoop->finalize(leafGridView.comm());
 
     ////////////////////////////////////////////////////////////
     // finalize, print dumux message to say goodbye
     ////////////////////////////////////////////////////////////
-
-    couplingInterface.finalize();
+    if (getParam<bool>("Precice.RunWithCoupling") == true){
+        couplingInterface.finalize();
+    }
     // print dumux end message
     if (mpiHelper.rank() == 0)
     {

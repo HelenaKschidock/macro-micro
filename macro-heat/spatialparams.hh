@@ -80,17 +80,28 @@ public:
     Scalar porosity(const Element& element, 
                     const SubControlVolume& scv, 
                     const ElementSolution& elemSol) const
-    {   
-        return couplingInterface_.getScalarQuantityOnFace(porosityId_,scv.elementIndex());
+    {   if (getParam<bool>("Precice.RunWithCoupling") == true){
+            return couplingInterface_.getScalarQuantityOnFace(porosityId_,scv.elementIndex());
+        }
+        else
+            return 0.5; //TODO hardcoded
     } 
 
     DimWorldMatrix solidThermalConductivity(const Element &element,
                                     const SubControlVolume& scv) const
     {   DimWorldMatrix K;
-        K[0][0] = couplingInterface_.getScalarQuantityOnFace(k00Id_,scv.elementIndex());
-        K[0][1] = couplingInterface_.getScalarQuantityOnFace(k01Id_,scv.elementIndex());
-        K[1][0] = couplingInterface_.getScalarQuantityOnFace(k10Id_,scv.elementIndex());
-        K[1][1] = couplingInterface_.getScalarQuantityOnFace(k11Id_,scv.elementIndex());
+        if (getParam<bool>("Precice.RunWithCoupling") == true){
+            K[0][0] = couplingInterface_.getScalarQuantityOnFace(k00Id_,scv.elementIndex());
+            K[0][1] = couplingInterface_.getScalarQuantityOnFace(k01Id_,scv.elementIndex());
+            K[1][0] = couplingInterface_.getScalarQuantityOnFace(k10Id_,scv.elementIndex());
+            K[1][1] = couplingInterface_.getScalarQuantityOnFace(k11Id_,scv.elementIndex());
+        } 
+        else{ //TODO CHECK
+            K[0][0] = getParam<Scalar>("Component.SolidThermalConductivity");
+            K[0][1] = 0.0;
+            K[1][0] = 0.0;
+            K[1][1] = getParam<Scalar>("Component.SolidThermalConductivity");
+        }
         return K; 
     }
 
