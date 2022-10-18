@@ -229,7 +229,7 @@ int main(int argc, char** argv)
     vtkWriter.write(0.0); //restart time = 0 
 
     // output every vtkOutputInterval time step
-    const int vtkOutputInterval = getParam<int>("Problem.OutputInterval");
+    const int vtkOutputInterval = getParam<int>("TimeLoop.OutputInterval");
 
     // instantiate time loop
     auto timeLoop = std::make_shared<TimeLoop<Scalar>>(0.0, dt, tEnd);
@@ -246,6 +246,7 @@ int main(int argc, char** argv)
     using NewtonSolver = Dumux::NewtonSolver<Assembler, LinearSolver>;
     NewtonSolver nonLinearSolver(assembler, linearSolver);
     // time loop
+    int n = 0;
     std::cout << "Time Loop starts" << std::endl;
     timeLoop->start(); do
     {   // write checkpoint
@@ -309,9 +310,13 @@ int main(int argc, char** argv)
             gridVariables->advanceTimeStep();
             couplingInterface.announceIterationCheckpointRead();
         } else //coupling successful
-        {
-            //for now: output every time step
-            vtkWriter.write(timeLoop->time());
+        {   
+            //output every outputinterval steps
+            n += 1;
+            if (n == vtkOutputInterval){
+                vtkWriter.write(timeLoop->time());
+                n = 0;
+            }
             // advance the time loop to the next step
             timeLoop->advanceTimeStep();
             // report statistics of this time step
