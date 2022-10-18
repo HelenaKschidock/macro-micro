@@ -129,8 +129,13 @@ public:
      */
     BoundaryTypes boundaryTypesAtPos(const GlobalPosition &globalPos) const
     {   BoundaryTypes bcTypes;
-
-        if(globalPos[1] < eps_ || globalPos[1] > this->gridGeometry().bBoxMax()[1] - eps_)
+        if (globalPos[1] < this->gridGeometry().bBoxMin()[1] + eps_ && getParam<std::string>("BoundaryConditions.BcTypeBottom") == "dirichlet")
+            bcTypes.setAllDirichlet();
+        else if(globalPos[1] > this->gridGeometry().bBoxMax()[1] - eps_ && getParam<std::string>("BoundaryConditions.BcTypeTop") == "dirichlet")
+            bcTypes.setAllDirichlet();
+        else if (globalPos[0] < this->gridGeometry().bBoxMin()[0] + eps_ && getParam<std::string>("BoundaryConditions.BcTypeLeft") == "dirichlet")
+            bcTypes.setAllDirichlet();
+        else if(globalPos[0] > this->gridGeometry().bBoxMax()[0] - eps_ && getParam<std::string>("BoundaryConditions.BcTypeRight") == "dirichlet")
             bcTypes.setAllDirichlet();
         else
             bcTypes.setAllNeumann(); //default is adiabatic
@@ -146,9 +151,15 @@ public:
      * For this method, the \a values parameter stores primary variables.
      */
     PrimaryVariables dirichletAtPos(const GlobalPosition &globalPos) const
-    {   //TODO currently hardcoded
+    {   
         PrimaryVariables priVars(initial_()); // because only called in dirichlet boundary cells -> always overwritten (4 times in our case: 2 top, 2 bot)
-        if (globalPos[1] < eps_){
+        if (globalPos[0] <  this->gridGeometry().bBoxMin()[0] + eps_){
+            priVars[temperatureIdx] = getParam<Scalar>("BoundaryConditions.BcLeft");
+        }
+        if (globalPos[0] > this->gridGeometry().bBoxMax()[0] - eps_){
+            priVars[temperatureIdx] = getParam<Scalar>("BoundaryConditions.BcRight");
+        }
+        if (globalPos[1] <  this->gridGeometry().bBoxMin()[1] + eps_){
             priVars[temperatureIdx] = getParam<Scalar>("BoundaryConditions.BcBottom");
         }
         if (globalPos[1] > this->gridGeometry().bBoxMax()[1] - eps_){
