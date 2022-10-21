@@ -1,6 +1,6 @@
 [Component]
 SolidDensity = 1.0 #rho_s 
-SolidThermalConductivity = 1.0 #1.0 #k_s
+SolidThermalConductivity = 1.0 #k_s
 SolidHeatCapacity = 1.0
 
 [Grid]
@@ -9,9 +9,9 @@ UpperRight = 1 1
 Cells = 1 10
 
 [TimeLoop]
-TEnd = 100000 #0.25
+TEnd = 0.25 
 OutputInterval = 1 # output after every n timesteps 
-MaxDt = 1e10 #0.01
+MaxDt = 0.01 
 InitialDt = 0.01
 
 [Problem]
