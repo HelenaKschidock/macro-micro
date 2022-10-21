@@ -1,14 +1,24 @@
+[Component]
+SolidDensity = 1.0 #rho_s 
+SolidThermalConductivity = 1.0 #k_s
+SolidHeatCapacity = 1.0
+
 [Grid]
 LowerLeft = 0 0
 UpperRight = 1 1
-Cells = 5 5
+Cells = 1 10
 
 [TimeLoop]
-TEnd = 1 
-TOutput = 0.1
+TEnd = 0.25 
+OutputInterval = 1 # output after every n timesteps 
+MaxDt = 0.01 
+InitialDt = 0.01
 
 [Problem]
 Name = macro-heat
+EnableGravity = false
+Permeability = 1
+DefaultPorosity = 0.5
 
 [BoundaryConditions]
 BcTypeLeft = neumann
@@ -17,14 +27,11 @@ BcTypeTop = dirichlet
 BcTypeBottom = dirichlet
 BcLeft = 0
 BcRight = 0
-BcTop = 273
-BcBootom = 400
+BcTop = 273.0
+BcBottom = 400.0
 
 [InitialConditions]
-Temperature = 273
-Phi = 0.5
-k = 1.0
+Temperature = 273.0
 
-[SpatialParameters]
-RhoS = 1.0
-RhoG = 2.0
+[Precice]
+RunWithCoupling = false
