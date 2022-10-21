@@ -11,11 +11,11 @@
 3. Build the DuMuX macro executable by navigating into `dumux/dumux-adapter/build-cmake/examples/macro-micro/macro-heat` and executing `make test_macro_heat`. 
 
 ## Running the simulating
-1. Running only the macro simulation
-  * Set the `RunWithCoupling ` parameter in `macro-heat/params.input`to `false`. Rebuild afterwards.
-  * Navigate to `dumux/dumux-adapter/build-cmake/examples/macro-micro/macro-heat` and execute `./test_macro_heat`
-2. Running the coupled simulation
-  * Set the `RunWithCoupling ` parameter in `macro-heat/params.input`to `true`. Rebuild afterwards.
-  * Open two separate shells. In one of them, run the macro simulation as above
-  * In the otehr, navigate to `dumux/dumux-adapter/build-cmake/examples/macro-micro/python-micro-heat` and execute `python3 run-micro-manager.py`.
-    * To run the micro code in parallel, use `mpirun -n <NThreads> python3 run-micro-problems.py` instead.
+### Running only the macro simulation
+* Set the `RunWithCoupling ` parameter in `macro-heat/params.input`to `false`. Rebuild afterwards.
+* Navigate to `dumux/dumux-adapter/build-cmake/examples/macro-micro/macro-heat` and execute `./test_macro_heat`
+### Running the coupled simulation
+* Set the `RunWithCoupling ` parameter in `macro-heat/params.input`to `true`. Rebuild afterwards.
+* Open two separate shells. In one of them, run the macro simulation as above.
+* In the other, navigate to `dumux/dumux-adapter/build-cmake/examples/macro-micro/python-micro-heat` and execute `python3 run-micro-manager.py`.
+* To run the micro code in parallel, use `mpirun -n <NThreads> python3 run-micro-problems.py` instead.
