@@ -432,28 +432,6 @@ private:
         return SolidSystem::density(solidState);
     }
 
-    /*!
-     * \brief Gets the solid's thermal conductivity in an scv.
-     *
-     * \param elemSol the element solution vector
-     * \param problem the problem to solve
-     * \param element the element (codim-0-entity) the scv belongs to
-     * \param scv the sub control volume
-     * \param solidState the solid state
-     * \note this gets selected if the user uses the solidsystem / solidstate interface
-     */
-    template<class ElemSol, class Problem, class Element, class Scv,
-             std::enable_if_t<!Detail::hasSolidThermalConductivity<typename Problem::SpatialParams, Element, Scv, ElemSol, SolidState>(), int> = 0>
-    DimWorldMatrix solidThermalConductivity_(const ElemSol& elemSol,
-                                     const Problem& problem,
-                                     const Element& element,
-                                     const Scv& scv,
-                                     const SolidState& solidState)
-    {
-        return problem.spatialParams().solidThermalConductivity(element, scv);
-        //return SolidSystem::thermalConductivity(solidState); (see dumux-heat)
-    }
-
     // \}
 
     /*!
@@ -484,6 +462,7 @@ private:
         static_assert(Detail::isInertSolidPhase<SolidSystem>::value,
             "solidHeatCapacity can only be overwritten in the spatial params when the solid system is a simple InertSolidPhase\n"
             "If you select a proper solid system, the solid heat capacity will be computed as stated in the solid system!");
+        std::cout << "sHC called in myenergyvolumevariables" << std::endl; //DEBUG
         return problem.spatialParams().solidHeatCapacity(element, scv, elemSol, solidState);
     }
 
@@ -512,31 +491,29 @@ private:
         return problem.spatialParams().solidDensity(element, scv, elemSol, solidState);
     }
 
-    /*!
-     * \brief Gets the solid's heat capacity in an scv.
+        /*!
+     * \brief Gets the solid's thermal conductivity in an scv.
      *
      * \param elemSol the element solution vector
      * \param problem the problem to solve
      * \param element the element (codim-0-entity) the scv belongs to
      * \param scv the sub control volume
      * \param solidState the solid state
-     * \note this gets selected if the user uses the simple spatial params interface in
-     *       combination with an InertSolidPhase as solid system
+     * \note this gets selected if the user uses the solidsystem / solidstate interface
      */
     template<class ElemSol, class Problem, class Element, class Scv,
-             std::enable_if_t<Detail::hasSolidThermalConductivity<typename Problem::SpatialParams, Element, Scv, ElemSol, SolidState>(), int> = 0>
+             std::enable_if_t<!Detail::hasSolidThermalConductivity<typename Problem::SpatialParams, Element, Scv, ElemSol, SolidState>(), int> = 0>
     DimWorldMatrix solidThermalConductivity_(const ElemSol& elemSol,
                                      const Problem& problem,
                                      const Element& element,
                                      const Scv& scv,
                                      const SolidState& solidState)
-    {
-        static_assert(Detail::isInertSolidPhase<SolidSystem>::value,
+    {   static_assert(Detail::isInertSolidPhase<SolidSystem>::value,
             "solidThermalConductivity can only be overwritten in the spatial params when the solid system is a simple InertSolidPhase\n"
             "If you select a proper solid system, the solid thermal conductivity will be computed as stated in the solid system!");
-        std::cout << "CHECK: solidThermalConductivity called!" << std::endl;
-        //TODO this is never called. is our system InertSolidPhase?
+        std::cout << "Conductivity tensor:\n" << problem.spatialParams().solidThermalConductivity(element, scv) << std::endl;
         return problem.spatialParams().solidThermalConductivity(element, scv);
+        //return SolidSystem::thermalConductivity(solidState); (see dumux-heat)
     }
 
     DimWorldMatrix lambdaEff_;
