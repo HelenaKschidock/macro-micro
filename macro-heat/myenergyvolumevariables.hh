@@ -511,7 +511,7 @@ private:
     {   static_assert(Detail::isInertSolidPhase<SolidSystem>::value,
             "solidThermalConductivity can only be overwritten in the spatial params when the solid system is a simple InertSolidPhase\n"
             "If you select a proper solid system, the solid thermal conductivity will be computed as stated in the solid system!");
-        std::cout << "Conductivity tensor:\n" << problem.spatialParams().solidThermalConductivity(element, scv) << std::endl;
+        //std::cout << "Conductivity tensor:\n" << problem.spatialParams().solidThermalConductivity(element, scv) << std::endl;
         return problem.spatialParams().solidThermalConductivity(element, scv);
         //return SolidSystem::thermalConductivity(solidState); (see dumux-heat)
     }
