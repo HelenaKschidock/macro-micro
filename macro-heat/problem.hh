@@ -70,6 +70,7 @@ class OnePNIConductionProblem : public PorousMediumFlowProblem<TypeTag>
     using IapwsH2O = Components::H2O<Scalar>;
 
     enum { dimWorld = GridView::dimensionworld };
+    using DimWorldMatrix = Dune::FieldMatrix<Scalar, dimWorld, dimWorld>; //see https://dumux.org/docs/doxygen/releases/3.5/a00575_source.html
 
     // copy some indices for convenience
     using Indices = typename GetPropType<TypeTag, Properties::ModelTraits>::Indices;
@@ -92,6 +93,8 @@ public:
         FluidSystem::init();
 
         name_ = getParam<std::string>("Problem.Name");
+
+        porosity_.resize(gridGeometry->numDofs());
     }
 
     int returnTemperatureIdx() //
@@ -188,6 +191,29 @@ public:
         return initial_();
     }
 
+    //to make available to vtkOutput
+    const std::vector<Scalar>& getPorosity()
+    { return porosity_; }
+
+    // Function to update the permeability for additional vtk output
+    template<class SolutionVector>
+    void updateVtkOutput(const SolutionVector& curSol)
+    {
+        for (const auto& element : elements(this->gridGeometry().gridView()))
+        {
+            const auto elemSol = elementSolution(element, curSol, this->gridGeometry());
+            auto fvGeometry = localView(this->gridGeometry());
+            fvGeometry.bindElement(element);
+            for (const auto& scv : scvs(fvGeometry))
+            {
+                VolumeVariables volVars;
+                volVars.update(elemSol, *this, element, scv);
+                const auto elementIdx = scv.elementIndex();
+                porosity_[elementIdx] = volVars.porosity();              
+            }
+        }
+    }
+
 
 private:
     Dumux::Precice::CouplingAdapter &couplingInterface_;
@@ -202,6 +228,8 @@ private:
     }
     static constexpr Scalar eps_ = 1e-6;
     std::string name_;
+    std::vector<Scalar> porosity_;
+
 };
 
 } // end namespace Dumux
