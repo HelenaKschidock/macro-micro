@@ -232,13 +232,15 @@ int main(int argc, char** argv)
     
         couplingInterface.initializeData();
     }
-
+    
     // intialize the vtk output module
     using IOFields = GetPropType<TypeTag, Properties::IOFields>;
     VtkOutputModule<GridVariables, SolutionVector> vtkWriter(*gridVariables, x, problem->name());
     using VelocityOutput = GetPropType<TypeTag, Properties::VelocityOutput>;
     vtkWriter.addVelocityOutput(std::make_shared<VelocityOutput>(*gridVariables));
     IOFields::initOutputModule(vtkWriter); // Add model specific output fields
+    vtkWriter.addField(problem->getPorosity(), "porosity");
+    problem->updateVtkOutput(x);
     vtkWriter.write(0.0); //restart time = 0 
 
     // output every vtkOutputInterval time step
@@ -317,6 +319,7 @@ int main(int argc, char** argv)
             } else //coupling successful
             {   n += 1;
                 if (n == vtkOutputInterval){
+                    problem->updateVtkOutput(x);
                     vtkWriter.write(timeLoop->time());
                     n = 0;
                 }
@@ -338,6 +341,7 @@ int main(int argc, char** argv)
             //output every outputinterval steps
             n += 1;
             if (n == vtkOutputInterval){
+                problem->updateVtkOutput(x);
                 vtkWriter.write(timeLoop->time());
                 n = 0;
             }
