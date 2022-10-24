@@ -39,7 +39,8 @@
 #include <dumux/porousmediumflow/1p/model.hh>
 
 #include <dumux/material/fluidsystems/1pliquid.hh>
-#include <dumux/material/components/simpleh2o.hh>
+//#include <dumux/material/components/simpleh2o.hh>
+#include "mysimpleh2o.hh"
 #include <dumux/material/fluidmatrixinteractions/1p/thermalconductivityaverage.hh>
 
 #include "problem.hh"
@@ -67,7 +68,7 @@ template<class TypeTag>
 struct FluidSystem<TypeTag, TTag::OnePNIConduction>
 {
     using type = FluidSystems::OnePLiquid<GetPropType<TypeTag, Properties::Scalar>,
-                                          Components::SimpleH2O<GetPropType<TypeTag, Properties::Scalar>> >;
+                                          Components::MySimpleH2O<GetPropType<TypeTag, Properties::Scalar>> >;
 };
 
 //! Set the volume variables property

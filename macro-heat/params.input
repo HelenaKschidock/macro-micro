@@ -2,6 +2,9 @@
 SolidDensity = 1.0 #rho_s 
 SolidThermalConductivity = 1.0 #k_s
 SolidHeatCapacity = 1.0
+LiquidDensity = 1.0 ##
+LiquidThermalConductiviy = 1.0 ##
+LiquidHeatCapacity = 1.0 ##
 
 [Grid]
 LowerLeft = 0 0
