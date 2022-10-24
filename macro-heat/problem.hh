@@ -94,7 +94,7 @@ public:
         name_ = getParam<std::string>("Problem.Name");
     }
 
-    int returnTemperatureIdx()
+    int returnTemperatureIdx() //
     {
         return temperatureIdx;
     }
@@ -152,7 +152,7 @@ public:
      */
     PrimaryVariables dirichletAtPos(const GlobalPosition &globalPos) const
     {   
-        PrimaryVariables priVars(initial_()); // because only called in dirichlet boundary cells -> always overwritten (4 times in our case: 2 top, 2 bot)
+        PrimaryVariables priVars(initial_()); // because only called in dirichlet boundary cells -> always overwritten (along top and bot)
         if (globalPos[0] <  this->gridGeometry().bBoxMin()[0] + eps_){
             priVars[temperatureIdx] = getParam<Scalar>("BoundaryConditions.BcLeft");
         }
@@ -165,7 +165,6 @@ public:
         if (globalPos[1] > this->gridGeometry().bBoxMax()[1] - eps_){
             priVars[temperatureIdx] = getParam<Scalar>("BoundaryConditions.BcTop");
         }
-        std::cout << priVars << std::endl;
         return priVars;
     }
 

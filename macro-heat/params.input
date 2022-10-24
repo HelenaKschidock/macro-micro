@@ -9,7 +9,7 @@ LiquidHeatCapacity = 1.0 ##
 [Grid]
 LowerLeft = 0 0
 UpperRight = 1 1
-Cells = 1 10
+Cells = 20 20 #1 10
 
 [TimeLoop]
 TEnd = 0.25 

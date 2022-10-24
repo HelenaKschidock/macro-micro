@@ -284,16 +284,16 @@ int main(int argc, char** argv)
         // linearize & solve
         nonLinearSolver.solve(x, *timeLoop);
 
-        std::cout << "temperatures: " << std::endl;
+        //std::cout << "temperatures: " << std::endl;
         for (int solIdx=0; solIdx< numberOfElements; ++solIdx){
             temperatures[solIdx] = x[solIdx][problem->returnTemperatureIdx()];
-            std::cout << x[solIdx][problem->returnTemperatureIdx()] << std::endl;
+            //std::cout << x[solIdx][problem->returnTemperatureIdx()] << std::endl;
         };
         if (getParam<bool>("Precice.RunWithCoupling") == true){
             couplingInterface.writeQuantityVector(temperatureID, temperatures);
             couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);      
         }
-        //advance precice
+        //advance precice 
         if (getParam<bool>("Precice.RunWithCoupling") == true){
             preciceDt = couplingInterface.advance(dt);
             std::cout << "preciceDt: " << preciceDt << std::endl;
@@ -303,8 +303,6 @@ int main(int argc, char** argv)
             dt = std::min(nonLinearSolver.suggestTimeStepSize(timeLoop->timeStepSize()), getParam<Scalar>("TimeLoop.MaxDt"));
         }
         std::cout << "dt: " << dt << std::endl;
-        // set new dt as suggested by the newton solver or by precice
-        timeLoop->setTimeStepSize(dt);
         
         if (getParam<bool>("Precice.RunWithCoupling") == true){
             if (couplingInterface.hasToReadIterationCheckpoint()) {
@@ -314,7 +312,7 @@ int main(int argc, char** argv)
                 //            vtkTime += 1.;
                 x = xOld;
                 gridVariables->update(x);
-                gridVariables->advanceTimeStep();
+                gridVariables->advanceTimeStep(); //DEBUG
                 couplingInterface.announceIterationCheckpointRead();
             } else //coupling successful
             {   n += 1;
@@ -330,18 +328,23 @@ int main(int argc, char** argv)
             }
         }
         else{
+            xOld = x; //DEBUG
+            gridVariables->advanceTimeStep();
+            // advance the time loop to the next step
+            timeLoop->advanceTimeStep();
+            // report statistics of this time step
+            timeLoop->reportTimeStep();
+            
             //output every outputinterval steps
             n += 1;
             if (n == vtkOutputInterval){
                 vtkWriter.write(timeLoop->time());
                 n = 0;
             }
-            gridVariables->advanceTimeStep();
-            // advance the time loop to the next step
-            timeLoop->advanceTimeStep();
-            // report statistics of this time step
-            timeLoop->reportTimeStep();
         }
+        // set new dt as suggested by the newton solver or by precice
+        timeLoop->setTimeStepSize(dt); //TODO dumux-heat sets this afterwards, other examples before
+        
         std::cout << "Time: " << timeLoop->time() << std::endl;
 
     } while (!timeLoop->finished());
