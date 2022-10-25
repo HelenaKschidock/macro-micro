@@ -146,7 +146,7 @@ int main(int argc, char** argv)
 
     //get mesh coordinates 
     std::string meshName = "macro-mesh";
-    std::vector<double> coords;  //( dim * nSCV );
+    std::vector<double> coords;  
     std::vector<int> coupledElementIdxs;
     const auto cells = getParam<std::array<int, 2>>("Grid.Cells", std::array<int, 2>{{1, 1}});
     std::cout << "Coordinates: " << std::endl;
@@ -154,7 +154,7 @@ int main(int argc, char** argv)
     for (const auto &element : elements(leafGridView)) {
         auto fvGeometry = localView(*gridGeometry); 
         fvGeometry.bindElement(element);
-        for (const auto &scv : scvs(fvGeometry)){ //only one SCV per element for CCTpfa (but 4 scvfs)
+        for (const auto &scv : scvs(fvGeometry)){ 
             coupledElementIdxs.push_back(scv.elementIndex());
             const auto &pos = scv.center();
             //cell centers
@@ -170,7 +170,7 @@ int main(int argc, char** argv)
 
     //initialize preCICE
     double preciceDt;
-    auto numberOfElements = coords.size()/dim; //number of Elents (cells)
+    auto numberOfElements = coords.size()/dim;
     if (getParam<bool>("Precice.RunWithCoupling") == true){
         preciceDt = couplingInterface.setMeshAndInitialize(
             meshName, numberOfElements, coords);
@@ -207,10 +207,10 @@ int main(int argc, char** argv)
         dt = getParam<Scalar>("TimeLoop.InitialDt");
     }
 
-    // the solution vector (initialized with zero)
+    // the solution vector (initialized with zeros)
     using SolutionVector = GetPropType<TypeTag, Properties::SolutionVector>;
-    SolutionVector x(gridGeometry->numDofs());          //(!solution vector at cell centers not at gauss points; Nelements x (pressure, temperature), initialized to 0 all)        
-    problem->applyInitialSolution(x);  // initialized with initial values from dumux
+    SolutionVector x(gridGeometry->numDofs());          //(!solution vector at cell centers, Nelements x (pressure, temperature))        
+    problem->applyInitialSolution(x);  
     auto xOld = x;
 
     // the grid variables                           
@@ -229,7 +229,6 @@ int main(int argc, char** argv)
             couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);
             couplingInterface.announceInitialDataWritten();
         }
-    
         couplingInterface.initializeData();
     }
     
@@ -241,7 +240,7 @@ int main(int argc, char** argv)
     IOFields::initOutputModule(vtkWriter); // Add model specific output fields
     vtkWriter.addField(problem->getPorosity(), "porosity");
     problem->updateVtkOutput(x);
-    vtkWriter.write(0.0); //restart time = 0 
+    vtkWriter.write(0.0);
 
     // output every vtkOutputInterval time step
     const int vtkOutputInterval = getParam<int>("TimeLoop.OutputInterval");
@@ -314,7 +313,7 @@ int main(int argc, char** argv)
                 //            vtkTime += 1.;
                 x = xOld;
                 gridVariables->update(x);
-                gridVariables->advanceTimeStep(); //DEBUG
+                gridVariables->advanceTimeStep();
                 couplingInterface.announceIterationCheckpointRead();
             } else //coupling successful
             {   n += 1;
@@ -331,7 +330,7 @@ int main(int argc, char** argv)
             }
         }
         else{
-            xOld = x; //DEBUG
+            xOld = x;
             gridVariables->advanceTimeStep();
             // advance the time loop to the next step
             timeLoop->advanceTimeStep();
@@ -347,7 +346,7 @@ int main(int argc, char** argv)
             }
         }
         // set new dt as suggested by the newton solver or by precice
-        timeLoop->setTimeStepSize(dt); //TODO dumux-heat sets this afterwards, other examples before
+        timeLoop->setTimeStepSize(dt);
         
         std::cout << "Time: " << timeLoop->time() << std::endl;
 

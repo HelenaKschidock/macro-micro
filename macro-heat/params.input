@@ -3,13 +3,13 @@ SolidDensity = 1.0 #rho_s
 SolidThermalConductivity = 1.0 #k_s
 SolidHeatCapacity = 1.0
 LiquidDensity = 1.0 ##
-LiquidThermalConductiviy = 1.0 ##
+LiquidThermalConductiviy = 0.0 #not used, conductivity tensor K communicated
 LiquidHeatCapacity = 1.0 ##
 
 [Grid]
 LowerLeft = 0 0
 UpperRight = 1 1
-Cells = 20 20 #1 10
+Cells = 1 5 #1 10
 
 [TimeLoop]
 TEnd = 0.25 
