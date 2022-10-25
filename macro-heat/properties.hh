@@ -39,7 +39,6 @@
 #include <dumux/porousmediumflow/1p/model.hh>
 
 #include <dumux/material/fluidsystems/1pliquid.hh>
-//#include <dumux/material/components/simpleh2o.hh>
 #include "mysimpleh2o.hh"
 #include <dumux/material/fluidmatrixinteractions/1p/thermalconductivityaverage.hh>
 

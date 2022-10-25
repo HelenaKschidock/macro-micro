@@ -41,20 +41,6 @@
 
 namespace Dumux {
 
-/*!
- * \ingroup OnePTests
- * \brief Test for the OnePModel in combination with the NI model for a conduction problem.
- *
- * The simulation domain is a tube with an elevated temperature on the left hand side.
- *
- * Initially the domain is fully saturated with water at a constant temperature.
- * On the left hand side there is a Dirichlet boundary condition with an increased
- * temperature and on the right hand side a Dirichlet boundary with constant pressure,
- * saturation and temperature is applied.
- *
- * The results are compared to an analytical solution for a diffusion process.
- * This problem uses the \ref OnePModel and \ref NIModel model.
- */
 template <class TypeTag>
 class OnePNIConductionProblem : public PorousMediumFlowProblem<TypeTag>
 {
@@ -70,7 +56,7 @@ class OnePNIConductionProblem : public PorousMediumFlowProblem<TypeTag>
     using IapwsH2O = Components::H2O<Scalar>;
 
     enum { dimWorld = GridView::dimensionworld };
-    using DimWorldMatrix = Dune::FieldMatrix<Scalar, dimWorld, dimWorld>; //see https://dumux.org/docs/doxygen/releases/3.5/a00575_source.html
+    using DimWorldMatrix = Dune::FieldMatrix<Scalar, dimWorld, dimWorld>; 
 
     // copy some indices for convenience
     using Indices = typename GetPropType<TypeTag, Properties::ModelTraits>::Indices;
@@ -222,7 +208,7 @@ private:
     PrimaryVariables initial_() const
     {
         PrimaryVariables priVars(0.0);
-        priVars[pressureIdx] = 1.0e5; //TODO
+        priVars[pressureIdx] = 1.0e5; 
         priVars[temperatureIdx] = getParam<Scalar>("InitialConditions.Temperature");
         return priVars;
     }

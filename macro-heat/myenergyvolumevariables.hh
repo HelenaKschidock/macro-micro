@@ -33,43 +33,6 @@
 #include <dumux/porousmediumflow/volumevariables.hh>
 
 namespace Dumux {
-//TODO check if can remove fluid etc
-
-#ifndef DOXYGEN
-namespace Detail {
-/* TODO DuMuX complains about repeated definition here
-// helper structs and functions detecting if the user-defined spatial params class has user-specified functions
-// for solidHeatCapacity, solidDensity, and solidThermalConductivity.
-
-template <typename T, typename ...Ts>
-using SolidHeatCapacityDetector = decltype(std::declval<T>().solidHeatCapacity(std::declval<Ts>()...));
-
-template<class T, typename ...Args>
-static constexpr bool hasSolidHeatCapacity()
-{ return Dune::Std::is_detected<SolidHeatCapacityDetector, T, Args...>::value; }
-
-template <typename T, typename ...Ts>
-using SolidDensityDetector = decltype(std::declval<T>().solidDensity(std::declval<Ts>()...));
-
-template<class T, typename ...Args>
-static constexpr bool hasSolidDensity()
-{ return Dune::Std::is_detected<SolidDensityDetector, T, Args...>::value; }
-
-template <typename T, typename ...Ts>
-using SolidThermalConductivityDetector = decltype(std::declval<T>().solidThermalConductivity(std::declval<Ts>()...));
-
-template<class T, typename ...Args>
-static constexpr bool hasSolidThermalConductivity()
-{ return Dune::Std::is_detected<SolidThermalConductivityDetector, T, Args...>::value; }
-
-template<class SolidSystem>
-struct isInertSolidPhase : public std::false_type {};
-
-template<class Scalar, class Component>
-struct isInertSolidPhase<SolidSystems::InertSolidPhase<Scalar, Component>> : public std::true_type {};
-*/
-} // end namespace Detail
-#endif
 
 // forward declaration
 template <class IsothermalTraits, class Impl, bool enableEnergyBalance>
@@ -137,7 +100,6 @@ public:
     }
 
     //! The effective thermal conductivity is zero for isothermal models
-    //TODO whats up here. again, nonisothermal
     template<class ElemSol, class Problem, class Element, class Scv>
     void updateEffectiveThermalConductivity(const ElemSol &elemSol,
                                             const Problem &problem,
@@ -177,7 +139,6 @@ public:
     using SolidSystem = typename Traits::SolidSystem;
 
     //! The temperature is obtained from the problem as a constant for isothermal models
-    //TODO we should NOT be isothermal.
     template<class ElemSol, class Problem, class Element, class Scv>
     void updateTemperature(const ElemSol& elemSol,
                            const Problem& problem,
@@ -229,16 +190,12 @@ public:
                                  const Element &element,
                                  const Scv &scv,
                                  SolidState & solidState)
-    {   
+    {   std::cout << 
         Scalar cs = solidHeatCapacity_(elemSol, problem, element, scv, solidState);
         solidState.setHeatCapacity(cs);
 
         Scalar rhos = solidDensity_(elemSol, problem, element, scv, solidState);
         solidState.setDensity(rhos);
-
-        //TODO: is this necessary for simulation or only because solidstate..... used later?
-        //DimWorldMatrix lambdas = solidThermalConductivity_(elemSol, problem, element, scv, solidState);
-        //solidState.setThermalConductivity(lambdas); //TODO note: here solidstate thermalconductivity is set
     }
 
     // updates the effective thermal conductivity
@@ -301,64 +258,13 @@ public:
     {  return  asImp_().solidState().density(); }
 
     /*!
-     * \brief Returns the thermal conductivity \f$\mathrm{[W/(m*K)]}\f$
-     *        of the solid phase in the sub-control volume.
-     */
-    /* TODO is this needed
-    DimWorldMatrix solidThermalConductivity() const
-    { return asImp_().solidState().thermalConductivity(); } //TODO this is used to set lambdaEff :((
-    */
-
-    DimWorldMatrix solidThermalConductivity() const //TODO is this legal or see above
-    { return lambdaEff_; }
-
-    /*!
-     * \brief Returns the thermal conductivity \f$\mathrm{[W/(m*K)]}\f$
-     *        of a fluid phase in the sub-control volume.
-     */
-    /* TODO is this needed 
-    Scalar fluidThermalConductivity(const int phaseIdx) const
-    { return FluidSystem::thermalConductivity(asImp_().fluidState(), phaseIdx); } */
-    DimWorldMatrix fluidThermalConductivity(const int phaseIdx) const
-    { return lambdaEff_; }
-
-    /*!
      * \brief Returns the effective thermal conductivity \f$\mathrm{[W/(m*K)]}\f$ in
      *        the sub-control volume. Specific to equilibirum models (case fullThermalEquilibrium).
      */
     template< bool enable = fullThermalEquilibrium,
               std::enable_if_t<enable, int> = 0>
     DimWorldMatrix effectiveThermalConductivity() const
-    { return lambdaEff_; }
-
-    /*!
-     * \brief Returns the effective thermal conductivity \f$\mathrm{[W/(m*K)]}\f$ of the fluids in
-     *        the sub-control volume. Specific to partially nonequilibrium models (case fluidThermalEquilibrium).
-     */
-    template< bool enable = fluidThermalEquilibrium,
-              std::enable_if_t<enable, int> = 0>
-    DimWorldMatrix effectiveFluidThermalConductivity() const
-    { return lambdaEff_; }
-
-    /*!
-     * \brief Returns the effective thermal conductivity \f$\mathrm{[W/(m*K)]}\f$
-     *        of the solid phase in the sub-control volume.
-     *        Specific to partially nonequilibrium models (case fluidThermalEquilibrium)
-     */
-    template< bool enable = fluidThermalEquilibrium,
-              std::enable_if_t<enable, int> = 0>
-    DimWorldMatrix effectiveSolidThermalConductivity() const
-    { return lambdaEff_; }
-
-    /*!
-     * \brief Returns the effective thermal conductivity \f$\mathrm{[W/(m*K)]}\f$
-     *        per fluid phase in the sub-control volume.
-     *        Specific to nonequilibrium models (case full non-equilibrium)
-     */
-    template< bool enable = (!fullThermalEquilibrium && !fluidThermalEquilibrium),
-              std::enable_if_t<enable, int> = 0>
-    DimWorldMatrix effectivePhaseThermalConductivity(const int phaseIdx) const
-    { return lambdaEff_; }
+    {   return lambdaEff_; }
 
     //! The phase enthalpy is zero for isothermal models
     //! This is needed for completing the fluid state
@@ -513,7 +419,6 @@ private:
             "If you select a proper solid system, the solid thermal conductivity will be computed as stated in the solid system!");
         //std::cout << "Conductivity tensor:\n" << problem.spatialParams().solidThermalConductivity(element, scv) << std::endl;
         return problem.spatialParams().solidThermalConductivity(element, scv);
-        //return SolidSystem::thermalConductivity(solidState); (see dumux-heat)
     }
 
     DimWorldMatrix lambdaEff_;

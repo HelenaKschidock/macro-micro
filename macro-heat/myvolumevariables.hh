@@ -88,7 +88,7 @@ public:
         updateSolidVolumeFractions(elemSol, problem, element, scv, solidState_, numFluidComps);
         EnergyVolVars::updateSolidEnergyParams(elemSol, problem, element, scv, solidState_);
         permeability_ = problem.spatialParams().permeability(element, scv, elemSol);
-        EnergyVolVars::updateEffectiveThermalConductivity(elemSol, problem, element, scv, solidState_); //I modified this
+        EnergyVolVars::updateEffectiveThermalConductivity(elemSol, problem, element, scv, solidState_);
     }
 
     /*!
@@ -194,7 +194,7 @@ public:
      * \brief Returns the average porosity \f$\mathrm{[-]}\f$ within the control volume.
      */
     Scalar porosity() const
-    { return solidState_.porosity(); }
+    { return solidState_.porosity(); } //DEBUG check 
 
     /*!
      * \brief Returns the permeability within the control volume in \f$[m^2]\f$.

@@ -46,7 +46,7 @@ class OnePNISpatialParams
     using ParentType = FVPorousMediumFlowSpatialParamsOneP<GridGeometry, Scalar, ThisType>;
 
     static const int dimWorld = GridView::dimensionworld;
-    using DimWorldMatrix = Dune::FieldMatrix<Scalar, dimWorld, dimWorld>; //see https://dumux.org/docs/doxygen/releases/3.5/a00575_source.html
+    using DimWorldMatrix = Dune::FieldMatrix<Scalar, dimWorld, dimWorld>;
     using Element = typename GridView::template Codim<0>::Entity;
     using GlobalPosition = typename Element::Geometry::GlobalCoordinate;
 
@@ -81,7 +81,7 @@ public:
                     const SubControlVolume& scv, 
                     const ElementSolution& elemSol) const
     {   if (getParam<bool>("Precice.RunWithCoupling") == true){
-            //std::cout << "Porosity: " << couplingInterface_.getScalarQuantityOnFace(porosityId_,scv.elementIndex()) <<  std::endl;
+            std::cout << "Porosity: " << couplingInterface_.getScalarQuantityOnFace(porosityId_,scv.elementIndex()) <<  std::endl;
             return couplingInterface_.getScalarQuantityOnFace(porosityId_,scv.elementIndex());
         }
         else{
@@ -99,7 +99,7 @@ public:
             K[1][0] = couplingInterface_.getScalarQuantityOnFace(k10Id_,scv.elementIndex());
             K[1][1] = couplingInterface_.getScalarQuantityOnFace(k11Id_,scv.elementIndex());
         } 
-        else{ //TODO CHECK
+        else{ 
             K[0][0] = getParam<Scalar>("Component.SolidThermalConductivity");
             K[0][1] = 0.0;
             K[1][0] = 0.0;
@@ -109,7 +109,7 @@ public:
     }
 
     void updatePreciceDataIds() 
-    {   //TODO currently only changes the values within this function, they revert back to init value! :(
+    {   //TODO currently only changes the values within this function, they revert back to init value! 
         porosityId_ = couplingInterface_.getIdFromName("porosity");
         k00Id_ = couplingInterface_.getIdFromName("k_00");
         k01Id_ = couplingInterface_.getIdFromName("k_01");
