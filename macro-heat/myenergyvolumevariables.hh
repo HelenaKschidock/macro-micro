@@ -190,24 +190,20 @@ public:
                                  const Element &element,
                                  const Scv &scv,
                                  SolidState & solidState)
-    {   std::cout << 
-        Scalar cs = solidHeatCapacity_(elemSol, problem, element, scv, solidState);
+    {   Scalar cs = solidHeatCapacity_(elemSol, problem, element, scv, solidState);
         solidState.setHeatCapacity(cs);
 
         Scalar rhos = solidDensity_(elemSol, problem, element, scv, solidState);
         solidState.setDensity(rhos);
     }
 
-    // updates the effective thermal conductivity
     template<class ElemSol, class Problem, class Element, class Scv>
     void updateEffectiveThermalConductivity(const ElemSol &elemSol,
                                             const Problem &problem,
                                             const Element &element,
                                             const Scv &scv,
                                             SolidState &solidState)
-    {
-        lambdaEff_ = solidThermalConductivity_(elemSol, problem, element, scv, solidState);
-    }
+    {   lambdaEff_ = solidThermalConductivity_(elemSol, problem, element, scv, solidState);    }
 
     /*!
      * \brief Returns the total internal energy of a phase in the
@@ -410,10 +406,10 @@ private:
     template<class ElemSol, class Problem, class Element, class Scv,
              std::enable_if_t<!Detail::hasSolidThermalConductivity<typename Problem::SpatialParams, Element, Scv, ElemSol, SolidState>(), int> = 0>
     DimWorldMatrix solidThermalConductivity_(const ElemSol& elemSol,
-                                     const Problem& problem,
-                                     const Element& element,
-                                     const Scv& scv,
-                                     const SolidState& solidState)
+                                            const Problem& problem,
+                                            const Element& element,
+                                            const Scv& scv,
+                                            const SolidState& solidState)
     {   static_assert(Detail::isInertSolidPhase<SolidSystem>::value,
             "solidThermalConductivity can only be overwritten in the spatial params when the solid system is a simple InertSolidPhase\n"
             "If you select a proper solid system, the solid thermal conductivity will be computed as stated in the solid system!");

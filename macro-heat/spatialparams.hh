@@ -68,7 +68,7 @@ public:
      * \param globalPos The global position
      */
     PermeabilityType permeabilityAtPos(const GlobalPosition& globalPos) const
-    {return getParam<Scalar>("Problem.Permeability"); } //TODO Does this also vary?  1e-10
+    {return getParam<Scalar>("Problem.Permeability"); } 
 
     /*!
      * \brief Defines the porosity \f$\mathrm{[-]}\f$.
@@ -85,7 +85,6 @@ public:
             return couplingInterface_.getScalarQuantityOnFace(porosityId_,scv.elementIndex());
         }
         else{
-            //std::cout << "Porosity: " << getParam<Scalar>("Problem.DefaultPorosity") << std::endl;
             return getParam<Scalar>("Problem.DefaultPorosity"); 
         }
     } 

@@ -239,6 +239,10 @@ int main(int argc, char** argv)
     vtkWriter.addVelocityOutput(std::make_shared<VelocityOutput>(*gridVariables));
     IOFields::initOutputModule(vtkWriter); // Add model specific output fields
     vtkWriter.addField(problem->getPorosity(), "porosity");
+    vtkWriter.addField(problem->getK00(), "k00");
+    vtkWriter.addField(problem->getK01(), "k01");
+    vtkWriter.addField(problem->getK10(), "k10");
+    vtkWriter.addField(problem->getK11(), "k11");
     problem->updateVtkOutput(x);
     vtkWriter.write(0.0);
 

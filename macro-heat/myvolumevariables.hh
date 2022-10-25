@@ -52,6 +52,8 @@ class MyOnePVolumeVariables
     using Scalar = typename Traits::PrimaryVariables::value_type;
     using PermeabilityType = typename Traits::PermeabilityType;
     static constexpr int numFluidComps = ParentType::numFluidComponents();
+    static constexpr int dimWorld = 2; //TODO hardcoded for now
+    using DimWorldMatrix = Dune::FieldMatrix<Scalar, dimWorld, dimWorld>;
 public:
     //! Export the underlying fluid system
     using FluidSystem = typename Traits::FluidSystem;
@@ -193,8 +195,9 @@ public:
     /*!
      * \brief Returns the average porosity \f$\mathrm{[-]}\f$ within the control volume.
      */
-    Scalar porosity() const
-    { return solidState_.porosity(); } //DEBUG check 
+    Scalar porosity() const //TODO check
+    {   std::cout << "solidState_.porosity() = " << solidState_.porosity() << std::endl;
+        return solidState_.porosity(); } 
 
     /*!
      * \brief Returns the permeability within the control volume in \f$[m^2]\f$.
@@ -207,6 +210,10 @@ public:
      */
     const FluidState &fluidState() const
     { return fluidState_; }
+
+    DimWorldMatrix effectiveThermalConductivity() const
+    {   return EnergyVolVars::effectiveThermalConductivity();
+    }
 
 protected:
     FluidState fluidState_;

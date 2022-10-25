@@ -81,6 +81,10 @@ public:
         name_ = getParam<std::string>("Problem.Name");
 
         porosity_.resize(gridGeometry->numDofs());
+        k00_.resize(gridGeometry->numDofs());
+        k01_.resize(gridGeometry->numDofs());
+        k10_.resize(gridGeometry->numDofs());
+        k11_.resize(gridGeometry->numDofs());
     }
 
     int returnTemperatureIdx() //
@@ -181,6 +185,19 @@ public:
     const std::vector<Scalar>& getPorosity()
     { return porosity_; }
 
+    //to make available to vtkOutput
+    const std::vector<Scalar>& getK00()
+    { return k00_; }
+    //to make available to vtkOutput
+    const std::vector<Scalar>& getK01()
+    { return k01_; }
+    //to make available to vtkOutput
+    const std::vector<Scalar>& getK10()
+    { return k10_; }
+    //to make available to vtkOutput
+    const std::vector<Scalar>& getK11()
+    { return k11_; }
+
     // Function to update the permeability for additional vtk output
     template<class SolutionVector>
     void updateVtkOutput(const SolutionVector& curSol)
@@ -195,7 +212,11 @@ public:
                 VolumeVariables volVars;
                 volVars.update(elemSol, *this, element, scv);
                 const auto elementIdx = scv.elementIndex();
-                porosity_[elementIdx] = volVars.porosity();              
+                porosity_[elementIdx] = volVars.porosity();
+                k00_[elementIdx] = volVars.effectiveThermalConductivity()[0][0];
+                k01_[elementIdx] = volVars.effectiveThermalConductivity()[0][1];
+                k10_[elementIdx] = volVars.effectiveThermalConductivity()[1][0];
+                k11_[elementIdx] = volVars.effectiveThermalConductivity()[1][1];
             }
         }
     }
@@ -215,6 +236,10 @@ private:
     static constexpr Scalar eps_ = 1e-6;
     std::string name_;
     std::vector<Scalar> porosity_;
+    std::vector<Scalar> k00_;
+    std::vector<Scalar> k01_;
+    std::vector<Scalar> k10_;
+    std::vector<Scalar> k11_;
 
 };
 
