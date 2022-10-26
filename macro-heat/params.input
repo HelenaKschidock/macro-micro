@@ -8,8 +8,8 @@ LiquidHeatCapacity = 1.0 ##
 
 [Grid]
 LowerLeft = 0 0
-UpperRight = 1 1
-Cells = 1 5 #1 10
+UpperRight = 1 0.5
+Cells = 3 3
 
 [TimeLoop]
 TEnd = 0.25 
@@ -26,15 +26,18 @@ DefaultPorosity = 0.3
 [BoundaryConditions]
 BcTypeLeft = neumann
 BcTypeRight = neumann
-BcTypeTop = dirichlet
-BcTypeBottom = dirichlet
-BcLeft = 0
-BcRight = 0
-BcTop = 273.0
-BcBottom = 400.0
+BcTypeTop = neumann ##?
+BcTypeBottom = neumann
+BcLeft = none
+BcRight = none
+BcTop = none
+BcBottom = none
+PointSource = 0.0
+PointSourcePosition = 0.0 0.0
 
 [InitialConditions]
-Temperature = 273.0
+Temperature = 0.5
+
 
 [Precice]
 RunWithCoupling = false
