@@ -21,22 +21,23 @@ InitialDt = 0.01
 Name = macro-heat
 EnableGravity = false
 Permeability = 1
-DefaultPorosity = 0.3
+DefaultPorosity = 0.5
 
 [BoundaryConditions]
 BcTypeLeft = neumann
 BcTypeRight = neumann
-BcTypeTop = neumann ##?
+BcTypeTop = neumann 
 BcTypeBottom = neumann
-BcLeft = none
-BcRight = none
-BcTop = none
-BcBottom = none
-PointSource = 0.0
-PointSourcePosition = 0.0 0.0
+BcLeft = 0.0
+BcRight = 0.0
+BcTop = 0.0
+BcBottom = 0.0
+UseHeatSourceBottomLeft = true
+HeatSourceBottomLeft = 0.0
 
 [InitialConditions]
 Temperature = 0.5
+Pressure = 0.0
 
 
 [Precice]

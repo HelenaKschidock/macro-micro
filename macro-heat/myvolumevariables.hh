@@ -195,9 +195,8 @@ public:
     /*!
      * \brief Returns the average porosity \f$\mathrm{[-]}\f$ within the control volume.
      */
-    Scalar porosity() const //TODO check
-    {   std::cout << "solidState_.porosity() = " << solidState_.porosity() << std::endl;
-        return solidState_.porosity(); } 
+    Scalar porosity() const 
+    { return solidState_.porosity(); } 
 
     /*!
      * \brief Returns the permeability within the control volume in \f$[m^2]\f$.

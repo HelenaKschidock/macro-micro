@@ -122,6 +122,10 @@ public:
      */
     BoundaryTypes boundaryTypesAtPos(const GlobalPosition &globalPos) const
     {   BoundaryTypes bcTypes;
+        //Meshwidth: hardcoded & assumes regular grids
+        auto cells = getParam<std::array<int, 2>>("Grid.Cells", std::array<int, 2>{{1, 1}});
+        double meshWidthX = (this->gridGeometry().bBoxMax()[0] - this->gridGeometry().bBoxMin()[0])/cells[0];
+        double meshWidthY = (this->gridGeometry().bBoxMax()[1] - this->gridGeometry().bBoxMin()[1])/cells[1];
         if (globalPos[1] < this->gridGeometry().bBoxMin()[1] + eps_ && getParam<std::string>("BoundaryConditions.BcTypeBottom") == "dirichlet")
             bcTypes.setAllDirichlet();
         else if(globalPos[1] > this->gridGeometry().bBoxMax()[1] - eps_ && getParam<std::string>("BoundaryConditions.BcTypeTop") == "dirichlet")
@@ -130,9 +134,15 @@ public:
             bcTypes.setAllDirichlet();
         else if(globalPos[0] > this->gridGeometry().bBoxMax()[0] - eps_ && getParam<std::string>("BoundaryConditions.BcTypeRight") == "dirichlet")
             bcTypes.setAllDirichlet();
+        //heat source bottom left corner
+        else if ((globalPos[1] < this->gridGeometry().bBoxMin()[1] + eps_ &&  globalPos[0] < this->gridGeometry().bBoxMin()[0] + meshWidthX + eps_)&& getParam<bool>("BoundaryConditions.UseHeatSourceBottomLeft")){
+            bcTypes.setAllDirichlet();
+        }
+        else if ((globalPos[0] < this->gridGeometry().bBoxMin()[0] + eps_ &&  globalPos[1] < this->gridGeometry().bBoxMin()[1] + meshWidthY + eps_)&& getParam<bool>("BoundaryConditions.UseHeatSourceBottomLeft")){
+            bcTypes.setAllDirichlet();
+        }
         else
             bcTypes.setAllNeumann(); //default is adiabatic
-
         return bcTypes;
     }
 
@@ -144,19 +154,30 @@ public:
      * For this method, the \a values parameter stores primary variables.
      */
     PrimaryVariables dirichletAtPos(const GlobalPosition &globalPos) const
-    {   
-        PrimaryVariables priVars(initial_()); // because only called in dirichlet boundary cells -> always overwritten (along top and bot)
+    {   PrimaryVariables priVars(initial_()); // because only called in dirichlet boundary cells -> always overwritten (along top and bot)
+        //Meshwidth: hardcoded & assumes regular grids
+        auto cells = getParam<std::array<int, 2>>("Grid.Cells", std::array<int, 2>{{1, 1}});
+        double meshWidthX = (this->gridGeometry().bBoxMax()[0] - this->gridGeometry().bBoxMin()[0])/cells[0];
+        double meshWidthY = (this->gridGeometry().bBoxMax()[1] - this->gridGeometry().bBoxMin()[1])/cells[1];
+
         if (globalPos[0] <  this->gridGeometry().bBoxMin()[0] + eps_){
             priVars[temperatureIdx] = getParam<Scalar>("BoundaryConditions.BcLeft");
         }
-        if (globalPos[0] > this->gridGeometry().bBoxMax()[0] - eps_){
+        else if (globalPos[0] > this->gridGeometry().bBoxMax()[0] - eps_){
             priVars[temperatureIdx] = getParam<Scalar>("BoundaryConditions.BcRight");
         }
         if (globalPos[1] <  this->gridGeometry().bBoxMin()[1] + eps_){
             priVars[temperatureIdx] = getParam<Scalar>("BoundaryConditions.BcBottom");
         }
-        if (globalPos[1] > this->gridGeometry().bBoxMax()[1] - eps_){
+        else if (globalPos[1] > this->gridGeometry().bBoxMax()[1] - eps_){
             priVars[temperatureIdx] = getParam<Scalar>("BoundaryConditions.BcTop");
+        }
+        //heat source bottom left corner
+        if (getParam<bool>("BoundaryConditions.UseHeatSourceBottomLeft")){
+            if ((globalPos[1] < this->gridGeometry().bBoxMin()[1] + eps_ &&  globalPos[0] < this->gridGeometry().bBoxMin()[0] + meshWidthX + eps_) ||
+                (globalPos[0] < this->gridGeometry().bBoxMin()[0] + eps_ &&  globalPos[1] < this->gridGeometry().bBoxMin()[1] + meshWidthY + eps_)){
+                    priVars[temperatureIdx] = getParam<Scalar>("BoundaryConditions.HeatSourceBottomLeft");
+            }
         }
         return priVars;
     }
@@ -184,17 +205,12 @@ public:
     //to make available to vtkOutput
     const std::vector<Scalar>& getPorosity()
     { return porosity_; }
-
-    //to make available to vtkOutput
     const std::vector<Scalar>& getK00()
     { return k00_; }
-    //to make available to vtkOutput
     const std::vector<Scalar>& getK01()
     { return k01_; }
-    //to make available to vtkOutput
     const std::vector<Scalar>& getK10()
     { return k10_; }
-    //to make available to vtkOutput
     const std::vector<Scalar>& getK11()
     { return k11_; }
 
@@ -229,7 +245,7 @@ private:
     PrimaryVariables initial_() const
     {
         PrimaryVariables priVars(0.0);
-        priVars[pressureIdx] = 1.0e5; 
+        priVars[pressureIdx] = getParam<Scalar>("InitialConditions.Pressure");
         priVars[temperatureIdx] = getParam<Scalar>("InitialConditions.Temperature");
         return priVars;
     }
