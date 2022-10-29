@@ -5,6 +5,8 @@ SolidHeatCapacity = 1.0
 LiquidDensity = 1.0 ##
 LiquidThermalConductiviy = 0.0 #not used, conductivity tensor K communicated
 LiquidHeatCapacity = 1.0 ##
+LiquidReferenceTemperature = 0.5
+LiquidViscosity = 1.0
 
 [Grid]
 LowerLeft = 0 0
@@ -41,4 +43,4 @@ Pressure = 0.0
 
 
 [Precice]
-RunWithCoupling = false
+RunWithCoupling = true
