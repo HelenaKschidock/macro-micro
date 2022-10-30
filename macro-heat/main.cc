@@ -213,25 +213,35 @@ int main(int argc, char** argv)
     problem->applyInitialSolution(x);  
     auto xOld = x;
 
-    // the grid variables                           
-    using GridVariables = GetPropType<TypeTag, Properties::GridVariables>;
-    auto gridVariables = std::make_shared<GridVariables>(problem, gridGeometry);
-    gridVariables->init(x);
-
     //initialize coupling data
     for (int solIdx=0; solIdx< numberOfElements; ++solIdx){
         temperatures.push_back(x[solIdx][problem->returnTemperatureIdx()]);
     };
     if (getParam<bool>("Precice.RunWithCoupling") == true){
         couplingInterface.writeQuantityVector(temperatureID, temperatures);
-        if (couplingInterface.hasToWriteInitialData()){
+        if (couplingInterface.hasToWriteInitialData()){ //not called in our implementation
             couplingInterface.writeQuantityVector(temperatureID, temperatures);
             couplingInterface.writeQuantityToOtherSolver(temperatureID, QuantityType::Scalar);
             couplingInterface.announceInitialDataWritten();
         }
         couplingInterface.initializeData();
+
+        //Read porosity and conductivity data from other solver
+        for (auto iter = readDataNames.begin(); iter != readDataNames.end(); iter++){
+            couplingInterface.readQuantityFromOtherSolver(readDataIDs[iter->c_str()], QuantityType::Scalar);
+            readData[iter->c_str()] = couplingInterface.getQuantityVector(readDataIDs[iter->c_str()]);
+            for (const auto &i : coupledElementIdxs){
+                couplingInterface.writeScalarQuantityOnFace(readDataIDs[iter->c_str()], i, readData[iter->c_str()][i]);//writes on element not on face
+            }
+        }
     }
     
+
+    // the grid variables                           
+    using GridVariables = GetPropType<TypeTag, Properties::GridVariables>;
+    auto gridVariables = std::make_shared<GridVariables>(problem, gridGeometry);
+    gridVariables->init(x);
+
     // intialize the vtk output module
     using IOFields = GetPropType<TypeTag, Properties::IOFields>;
     VtkOutputModule<GridVariables, SolutionVector> vtkWriter(*gridVariables, x, problem->name());
@@ -263,6 +273,7 @@ int main(int argc, char** argv)
     // the non-linear solver
     using NewtonSolver = Dumux::NewtonSolver<Assembler, LinearSolver>;
     NewtonSolver nonLinearSolver(assembler, linearSolver);
+
     // time loop
     int n = 0;
     std::cout << "Time Loop starts" << std::endl;
@@ -292,7 +303,6 @@ int main(int argc, char** argv)
         //std::cout << "temperatures: " << std::endl;
         for (int solIdx=0; solIdx< numberOfElements; ++solIdx){
             temperatures[solIdx] = x[solIdx][problem->returnTemperatureIdx()];
-            //std::cout << x[solIdx][problem->returnTemperatureIdx()] << std::endl;
         };
         if (getParam<bool>("Precice.RunWithCoupling") == true){
             couplingInterface.writeQuantityVector(temperatureID, temperatures);

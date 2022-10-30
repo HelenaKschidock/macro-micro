@@ -81,7 +81,6 @@ public:
                     const SubControlVolume& scv, 
                     const ElementSolution& elemSol) const
     {   if (getParam<bool>("Precice.RunWithCoupling") == true){
-            std::cout << "Porosity: " << couplingInterface_.getScalarQuantityOnFace(porosityId_,scv.elementIndex()) <<  std::endl;
             return couplingInterface_.getScalarQuantityOnFace(porosityId_,scv.elementIndex());
         }
         else{
