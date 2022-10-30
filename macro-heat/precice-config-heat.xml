@@ -48,7 +48,7 @@
       <read-data name="concentration" mesh="macro-mesh"/>
       <write-data name="micro_sim_time" mesh="macro-mesh"/>
       <write-data name="grain_size" mesh="macro-mesh"/>
-      <export:vtu directory="output" every-n-time-windows="5"/>
+      <export:vtu directory="output" every-n-time-windows="1"/>
     </participant>
 
     <m2n:sockets from="Micro-Manager" to="Macro-heat" network="lo" exchange-directory="../"/>
