@@ -108,7 +108,7 @@ class MicroSimulation:
         self._ns.lam = (4 / self._nelems) / (2**self._ref_level)  # Diffuse interface width
         self._ns.gam = 0.05
         self._ns.kt = 1.0
-        self._ns.eqconc = 273 # Equilibrium concentration
+        self._ns.eqconc = 0.5 # Equilibrium concentration
         self._ns.kg = 0.0  # Conductivity of grain material
         self._ns.ks = 1.0  # Conductivity of sand material
         self._ns.reacrate = 'kt (?conc / eqconc)^2 - 1'  # Constructed reaction rate based on macro temperature
