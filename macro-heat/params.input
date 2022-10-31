@@ -3,9 +3,9 @@ SolidDensity = 1.0 #rho_s
 SolidThermalConductivity = 1.0 #k_s
 SolidHeatCapacity = 1.0
 LiquidDensity = 1.0 ##
-LiquidThermalConductiviy = 0.0 #not used, conductivity tensor K communicated
+LiquidThermalConductiviy = 1.0 #not used, conductivity tensor K communicated
 LiquidHeatCapacity = 1.0 ##
-LiquidReferenceTemperature = 0.5
+LiquidReferenceTemperature = 0.5 #293.15
 LiquidViscosity = 1.0
 
 [Grid]
@@ -22,7 +22,7 @@ InitialDt = 0.01
 [Problem]
 Name = macro-heat
 EnableGravity = false
-Permeability = 1
+Permeability = 1.0
 DefaultPorosity = 0.5
 
 [BoundaryConditions]
