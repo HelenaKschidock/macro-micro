@@ -8,7 +8,7 @@
 ## Building the executables
 1. Rebuild the dumux-adapter by navigating into your `dumux` folder and executing `dunecontrol --only=dumux-adapter all`. Repeat this step any time you modify the CMake files.
 2. Build the nutils micro executable by navigating into `dumux/dumux-adapter/build-cmake/examples/macro-micro/python-micro-heat` and executing `make copy_micro_heat_python`. Repeat this step any time you modify the micro simulation files.
-3. Build the DuMuX macro executable by navigating into `dumux/dumux-adapter/build-cmake/examples/macro-micro/macro-heat` and executing `make test_macro_heat`. 
+3. Build the DuMuX macro executable by navigating into `dumux/dumux-adapter/build-cmake/examples/macro-micro/macro-heat` and executing `make test_macro_heat`. (By default, this uses [CCTPFA](https://dumux.org/docs/doxygen/releases/3.2/a00461_source.html) discretization. To use [Box discretization](https://dumux.org/docs/doxygen/releases/3.1/a02046.html), build `make test_macro_heat_box` instead.)
 
 ## Running the simulating
 ### Running only the macro simulation

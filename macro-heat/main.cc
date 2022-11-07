@@ -85,7 +85,8 @@ int main(int argc, char** argv)
     using namespace Dumux::Precice; //for QuantityType 
 
     // define the type tag for this problem
-    using TypeTag = Properties::TTag::OnePNIConductionCCTpfa; 
+    using TypeTag = Properties::TTag::TYPETAG;
+
     using Scalar = GetPropType<TypeTag, Properties::Scalar>;
 
     // initialize MPI, finalize is done automatically on exit
