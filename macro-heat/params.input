@@ -11,7 +11,7 @@ LiquidViscosity = 1.0
 [Grid]
 LowerLeft = 0 0
 UpperRight = 1 0.5
-Cells = 3 3
+Cells = 2 2
 
 [TimeLoop]
 TEnd = 0.25 

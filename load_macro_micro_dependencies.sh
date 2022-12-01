@@ -10,3 +10,6 @@ module use /usr/local.nfs/sgs/modulefiles
 module load ub2004/boost/1.75.0
 module load ub2004/libxml2/2.9.10
 module load cmake/3.18.2
+
+export CPATH=/scratch-nfs/kschidha/openmpi/install-3.1/include
+export PATH=/scratch-nfs/kschidha/openmpi/install-3.1/bin:$PATH
