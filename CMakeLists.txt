@@ -2,6 +2,7 @@ add_subdirectory(macro-dummy)
 add_subdirectory(python-micro-dummy)
 add_subdirectory(macro-heat)
 add_subdirectory(python-micro-heat)
+add_subdirectory(micro-heat)
 
 add_custom_target(copy_jobscript ALL
     COMMAND ${CMAKE_COMMAND} -E copy
