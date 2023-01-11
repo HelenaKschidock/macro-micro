@@ -64,6 +64,7 @@ public:
             omega_ = 1.0;
         }
         xi_ = getParam<Scalar>("Problem.xi");
+        lam_= 3/getParam<std::array<int, 2>>("Grid.Cells", std::array<int, 2>{{1, 1}})[0];
     }
 
     BoundaryTypes boundaryTypesAtPos(const GlobalPosition &globalPos) const
@@ -161,10 +162,10 @@ public:
         const static Scalar centerY = getParam<Scalar>("Problem.CenterY");
         const static Scalar radius = getParam<Scalar>("Problem.Radius");
         const static Scalar factor = getParam<Scalar>("Problem.PhasefieldICScaling");
-        Scalar s = (globalPos[0]-centerX)*(globalPos[0]-centerX)
-            +(globalPos[1]-centerY)*(globalPos[1]-centerY)
-            - radius*radius;
-        values[phiIdx] = 1.0/(1.0 + std::exp(-factor*s/xi_));
+        Scalar s = std::sqrt((globalPos[0]-centerX)*(globalPos[0]-centerX)
+            +(globalPos[1]-centerY)*(globalPos[1]-centerY))
+            - radius;
+        values[phiIdx] = 1.0/(1.0 + std::exp(-factor*s/lam_));
         return values;
     }
 
@@ -179,6 +180,7 @@ public:
     }
 
 private:
+    Scalar lam_;
     Scalar xi_;
     Scalar omega_;
     Scalar alpha_;
