@@ -9,7 +9,7 @@ MaxTimeStepSize = 5e-2  # maximal time step size
 [Grid]
 LowerLeft = -0.5 -0.5   # lower left (front) corner of the domain
 UpperRight = 0.5 0.5    # upper right (back) corner of the domain
-Cells = 200 200         # grid resolution in each coordinate direction
+Cells = 200 200         # grid resolution in each coordinate direction, currently lam in problem.hh assumes square 
 Periodic = 1 1
 
 [Problem]
@@ -24,4 +24,4 @@ OutputInterval = 0.1    # interval size for VTK output
 CenterX = 0.0
 CenterY = 0.0
 Radius = 0.4
-PhasefieldICScaling = 10.0
+PhasefieldICScaling = 4.0
