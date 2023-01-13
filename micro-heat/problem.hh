@@ -95,20 +95,9 @@ public:
         const auto& priVars = elemVolVars[scv].priVars();
 
         source[phiIdx] = -omega_ * pPrime(priVars[phiIdx]);
-        //source += conservationSource(fvGeometry, elemVolVars);
         source += 4*xi_*priVars[phiIdx]*(1.0-priVars[phiIdx])
             * interfaceVelocity(element, fvGeometry, elemVolVars, scv);
         return source;
-    }
-
-    /*!
-     * \brief Returns the source term to enforce conservation of phase-field function calculated
-     *        by updateConservationSource
-     */
-    Scalar conservationSource(const FVElementGeometry& fvGeometry,
-                              const ElementVolumeVariables& elemVolVars) const
-    {
-        return conservationSource_;
     }
 
     /*!
@@ -120,38 +109,6 @@ public:
                              const SubControlVolume& scv) const
     {
         return 0.0;
-    }
-
-    Scalar poreVolume() const
-    {
-        return poreVolume_;
-    }
-
-    /*!
-     * \brief Computes the expensive source term to enforce conservation of phase-field function
-     */
-    template <class Assembler, class SolutionVector>
-    void updateConservationSource(const Assembler& assembler,
-                                  const SolutionVector& curSol)
-    {
-        const auto& gridGeometry = this->gridGeometry();
-        auto elemGeometry = localView(gridGeometry);
-        const auto gridVolVars = assembler.gridVariables().curGridVolVars();
-        ElementVolumeVariables elemVolVars = localView(gridVolVars);
-        Scalar volume = 0;
-        Scalar integral = 0;
-        for (const auto& element : elements(gridGeometry.gridView()))
-        {
-            elemGeometry.bind(element);
-            elemVolVars.bind(element, elemGeometry, curSol);
-            for (const auto& scv : scvs(elemGeometry))
-            {
-                volume += scv.volume();
-                integral += pPrime(elemVolVars[scv].priVar(phiIdx)) * scv.volume();
-            }
-        }
-        poreVolume_ = volume;
-        conservationSource_ = omega_ * integral/volume;
     }
 
     PrimaryVariables initialAtPos(const GlobalPosition &globalPos) const
@@ -184,7 +141,6 @@ private:
     Scalar xi_;
     Scalar omega_;
     Scalar alpha_;
-    Scalar poreVolume_, conservationSource_;
 };
 
 } //end namespace Dumux

@@ -156,7 +156,6 @@ int main(int argc, char** argv)
     timeLoop->start(); do
     {
         // linearize & solve
-        problem->updateConservationSource(*assembler, x);
         nonLinearSolver->solve(x, *timeLoop);
 
         // make the new solution the old solution
