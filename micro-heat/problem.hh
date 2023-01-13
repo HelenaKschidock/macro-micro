@@ -58,13 +58,10 @@ public:
     {
         omega_ = getParam<Scalar>("Problem.omega");
         alpha_ = 1.0;
-        if (getParam<Scalar>("Problem.UseAlpha"))
-        {
-            alpha_ = 1.0/omega_;
-            omega_ = 1.0;
-        }
         xi_ = getParam<Scalar>("Problem.xi");
-        lam_= 3/getParam<std::array<int, 2>>("Grid.Cells", std::array<int, 2>{{1, 1}})[0];
+        kt_ = getParam<Scalar>("Problem.kt");
+        eqconc_ = getParam<Scalar>("Problem.eqconc");
+        updateReactionRate(); 
     }
 
     BoundaryTypes boundaryTypesAtPos(const GlobalPosition &globalPos) const
@@ -95,20 +92,28 @@ public:
         const auto& priVars = elemVolVars[scv].priVars();
 
         source[phiIdx] = -omega_ * pPrime(priVars[phiIdx]);
-        source += 4*xi_*priVars[phiIdx]*(1.0-priVars[phiIdx])
-            * interfaceVelocity(element, fvGeometry, elemVolVars, scv);
+        source += 4*xi_*priVars[phiIdx]*(1.0-priVars[phiIdx]) * reactionRate_;
         return source;
     }
 
+    void updateReactionRate(){ //(TODO use correctly)
+        reactionRate_ = reactionRate();
+    }
+
     /*!
-     * \brief Returns the interfaceVelocity to use in the source term
+     * \brief Returns the interfaceVelocity to use in the source term (F(T))
      */
-    Scalar interfaceVelocity(const Element& element,
-                             const FVElementGeometry& fvGeometry,
-                             const ElementVolumeVariables& elemVolVars,
-                             const SubControlVolume& scv) const
+    Scalar reactionRate() const
+    {   
+        return kt_ * ((concentration()/eqconc_)*(concentration()/eqconc_) - 1) ;
+    }
+
+    /*!
+     * \brief Returns the macro temperature/concentration (TODO)
+     */
+    Scalar concentration() const
     {
-        return 0.0;
+        return 0.5;
     }
 
     PrimaryVariables initialAtPos(const GlobalPosition &globalPos) const
@@ -122,7 +127,7 @@ public:
         Scalar s = std::sqrt((globalPos[0]-centerX)*(globalPos[0]-centerX)
             +(globalPos[1]-centerY)*(globalPos[1]-centerY))
             - radius;
-        values[phiIdx] = 1.0/(1.0 + std::exp(-factor*s/lam_));
+        values[phiIdx] = 1.0/(1.0 + std::exp(-factor*s/xi_));
         return values;
     }
 
@@ -137,10 +142,12 @@ public:
     }
 
 private:
-    Scalar lam_;
     Scalar xi_;
     Scalar omega_;
     Scalar alpha_;
+    Scalar kt_;
+    Scalar eqconc_;
+    Scalar reactionRate_;
 };
 
 } //end namespace Dumux
