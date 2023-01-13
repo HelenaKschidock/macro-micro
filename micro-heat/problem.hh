@@ -105,7 +105,7 @@ public:
      */
     Scalar reactionRate() const
     {   
-        return kt_ * ((concentration()/eqconc_)*(concentration()/eqconc_) - 1) ;
+        return - kt_ * ((concentration()/eqconc_)*(concentration()/eqconc_) - 1) ;
     }
 
     /*!
