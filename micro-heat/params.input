@@ -9,14 +9,15 @@ MaxTimeStepSize = 5e-2  # maximal time step size
 [Grid]
 LowerLeft = -0.5 -0.5   # lower left (front) corner of the domain
 UpperRight = 0.5 0.5    # upper right (back) corner of the domain
-Cells = 200 200         # grid resolution in each coordinate direction, currently lam in problem.hh assumes square 
+Cells = 200 200         # grid resolution in each coordinate direction, currently square assumed for xi calculation
 Periodic = 1 1
 
 [Problem]
-xi = 25e-3               # phasefield parameter
-omega = 25e-4            # phasefield diffusivity/surface tension parameter
-UseAlpha = 0            # switch from sigma to 'alpha' := 1/omega
+xi = 5e-2               # phasefield parameter (lambda. also called by dumux-phasefield. set to 3/Ncells)
+omega = 25e-4           # phasefield diffusivity/surface tension parameter (gamma)
 delta = 1e-10           # regularization parameter
+kt = 1.0                # constant deciding speed of expansion/contraction
+eqconc = 0.5            # equilibrium concentration 
 
 Name = cell_phase       # base name for VTK output files
 OutputInterval = 0.1    # interval size for VTK output
