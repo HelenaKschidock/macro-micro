@@ -130,6 +130,7 @@ int main(int argc, char** argv)
     using IOFields = GetPropType<TypeTag, Properties::IOFields>;
     VtkOutputModule<GridVariables, SolutionVector> vtkWriter(*gridVariables, x, problem->name());
     IOFields::initOutputModule(vtkWriter); //!< Add model specific output fields
+    vtkWriter.addField(problem->getPorosityAsField(x), "porosity");
     vtkWriter.write(0.0);
 
     // instantiate time loop
@@ -157,6 +158,9 @@ int main(int argc, char** argv)
     {
         // linearize & solve
         nonLinearSolver->solve(x, *timeLoop);
+
+        //calculate porosty
+        problem->calculatePorosity(x);
 
         // make the new solution the old solution
         *xOldPtr = x;
