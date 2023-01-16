@@ -24,6 +24,7 @@
 #include <dune/istl/matrix.hh>
 #include <fstream>
 #include <iostream>
+#include <dumux/common/integrate.hh>
 
 namespace Dumux {
 
@@ -53,9 +54,9 @@ class PlainAllenCahnProblem : public FVProblemWithSpatialParams<TypeTag>
     using GlobalPosition = typename Element::Geometry::GlobalCoordinate;
 
 public:
-    PlainAllenCahnProblem( std::shared_ptr<const FVGridGeometry> fvGridGeometry)
+    PlainAllenCahnProblem(std::shared_ptr<const FVGridGeometry> fvGridGeometry)
     : ParentType(fvGridGeometry)
-    {
+    {   
         omega_ = getParam<Scalar>("Problem.omega");
         alpha_ = 1.0;
         xi_ = getParam<Scalar>("Problem.xi");
@@ -141,6 +142,21 @@ public:
         return omega_;
     }
 
+    Scalar calculatePorosity(SolutionVector &sol) const //todo check
+    {   
+        std::size_t order = 1; 
+        return integrateGridFunction(this->gridGeometry(), sol, order);
+    }
+
+    //to make available to vtkOutput, porosity has to be converted to a Field
+    //TODO maybe separate into updateVtkOutput, getPorosity
+    const std::vector<Scalar>& getPorosityAsField(SolutionVector &sol)
+    {   Scalar f;
+        std::vector<Scalar> poro(sol.size(), calculatePorosity(sol));
+        poro_ = poro; 
+        return poro_; 
+    }
+
 private:
     Scalar xi_;
     Scalar omega_;
@@ -148,6 +164,7 @@ private:
     Scalar kt_;
     Scalar eqconc_;
     Scalar reactionRate_;
+    std::vector<Scalar> poro_;
 };
 
 } //end namespace Dumux
