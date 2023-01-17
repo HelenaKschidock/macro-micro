@@ -31,7 +31,7 @@
 
 #include <dumux/phasefield/model.hh>
 
-#include "problem.hh"
+#include "problem_allencahn.hh"
 
 namespace Dumux::Properties {
 
