@@ -46,6 +46,7 @@
 #include <dumux/io/vtkoutputmodule.hh>
 
 #include "properties_allencahn.hh"
+#include "properties_cellproblem.hh"
 
 void usage(const char *progName, const std::string &errorMsg)
 {
