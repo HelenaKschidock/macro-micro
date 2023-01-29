@@ -26,12 +26,11 @@
 
 #include <dune/grid/yaspgrid.hh>
 #include <dumux/discretization/cctpfa.hh>
-#include "mysimpleliquid.hh" //TODO
-#include <dumux/material/fluidsystems/1pliquid.hh> //TODO
-#include <dumux/porousmediumflow/1p/incompressiblelocalresidual.hh> //TODO
-
+#include "cell_problem/localresidual.hh"
 #include "problem_cellproblem.hh"
 #include "spatialparams_cellproblem.hh"
+#include "cell_problem/model.hh"
+#include "cell_problem/volumevariables.hh"
 
 namespace Dumux::Properties {
 
@@ -55,17 +54,30 @@ public:
     using type = CellProblemSpatialParams<GridGeometry, Scalar>;
 };
 
-template<class TypeTag>
-struct FluidSystem<TypeTag, TTag::CellProblem>
+template<class PV, class MT>
+struct CellProblemVolumeVariablesTraits
 {
-private:
-    using Scalar = GetPropType<TypeTag, Properties::Scalar>;
-public:
-    using type = FluidSystems::OnePLiquid<Scalar, Components::MySimpleLiquid<Scalar> >;
+    using PrimaryVariables = PV;
+    using ModelTraits = MT;
 };
 
 template<class TypeTag>
-struct LocalResidual<TypeTag, TTag::CellProblem> { using type = OnePIncompressibleLocalResidual<TypeTag>; };
+struct ModelTraits<TypeTag, TTag::CellProblem> { using type = CellProblemModelTraits; };
+
+//! Set the volume variables property
+template<class TypeTag>
+struct VolumeVariables<TypeTag, TTag::CellProblem>
+{   
+    using PV = GetPropType<TypeTag, Properties::PrimaryVariables>;
+    using MT = GetPropType<TypeTag, Properties::ModelTraits>;
+
+    using Traits = PhasefieldVolumeVariablesTraits<PV, MT>;
+public:
+    using type = CellProblemVolumeVariables<Traits>;
+};
+
+template<class TypeTag>
+struct LocalResidual<TypeTag, TTag::CellProblem> { using type = CellProblemLocalResidual<TypeTag>; };
 
 template<class TypeTag>
 struct EnableGridVolumeVariablesCache<TypeTag, TTag::CellProblem> { static constexpr bool value = true; };
