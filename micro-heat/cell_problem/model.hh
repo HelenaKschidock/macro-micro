@@ -16,51 +16,29 @@
  *   You should have received a copy of the GNU General Public License       *
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.   *
  *****************************************************************************/
-#ifndef DUMUX_SIMPLE_H2O_HH
-#define DUMUX_SIMPLE_H2O_HH
- 
-#include <dumux/common/parameters.hh>
-#include <dumux/material/idealgas.hh>
- 
-#include <cmath>
- 
-#include <dumux/material/components/base.hh>
-#include <dumux/material/components/liquid.hh>
- 
-namespace Dumux::Components {
- 
-template <class Scalar>
-class MySimpleLiquid
-: public Components::Base<Scalar, MySimpleLiquid<Scalar> >
-, public Components::Liquid<Scalar, MySimpleLiquid<Scalar> >
-, public Components::Gas<Scalar, MySimpleLiquid<Scalar> >
+// adapted from <dumux/porousmediumflow/nonisothermal/model.hh>
+// see instead: <dumux/porousmediumflow/1p/model.hh>
+#ifndef CELL_PROBLEM_MODEL_HH
+#define CELL_PROBLEM_MODEL_HH
+
+#include <string>
+#include "indices.hh"
+
+namespace Dumux {
+
+struct CellProblemModelTraits 
 {
-    using IdealGas = Dumux::IdealGas<Scalar>;
- 
-public:
-    static std::string name()
-    { return "MySimpleLiquid"; }
- 
-    static constexpr bool liquidIsCompressible()
-    { return false; }
- 
-    static constexpr bool liquidViscosityIsConstant()
-    { return true; }
- 
-    static Scalar liquidDensity(Scalar temperature, Scalar pressure)
-    { 
-        return 1.0; 
-    }
- 
-    static Scalar liquidViscosity(Scalar temperature, Scalar pressure)
-    {   
-        return 1.0;
-    }
+    //! We solve for one more equation, i.e. the energy balance
+    static constexpr int numEq() { return 2; }
+    static constexpr int numComponents() {return 2;}
+    /*
+    static constexpr bool enableAdvection() { return true; }
+    static constexpr bool enableMolecularDiffusion() { return false; }
+    static constexpr bool enableEnergyBalance() { return false; }
+    static constexpr bool enableThermalDispersion() { return false; }
+    */
 };
- 
-template <class Scalar>
-struct IsAqueous<MySimpleLiquid<Scalar>> : public std::true_type {};
- 
-} // end namespace Dumux::Components
- 
+
+} // end namespace Dumux
+
 #endif

@@ -35,7 +35,6 @@ class CellProblemSpatialParams
     using Element = typename GridView::template Codim<0>::Entity;
     using ParentType = FVPorousMediumFlowSpatialParamsOneP<GridGeometry, Scalar,
                                            CellProblemSpatialParams<GridGeometry, Scalar>>;
-
     static constexpr int dimWorld = GridView::dimensionworld;
     using GlobalPosition = typename SubControlVolume::GlobalPosition;
 
@@ -43,24 +42,34 @@ public:
     using PermeabilityType = Scalar;
 
     CellProblemSpatialParams(std::shared_ptr<const GridGeometry> gridGeometry)
-    : ParentType(gridGeometry), K_(gridGeometry->gridView().size(0), 0.0)
-    {
-        K_ = 1.0; //TODO
-    }
-    
-    template<class ElementSolution>
-    const PermeabilityType& permeability(const Element& element,
-                                         const SubControlVolume& scv,
-                                         const ElementSolution& elemSol) const
-    {
-        return K_; //TODO phi_0^delta 
+    : ParentType(gridGeometry), phi_(gridGeometry->gridView().size(0), 0.0)
+    {   
+        ks_ = getParam<Scalar>("Problem.ks");
+        kg_ = getParam<Scalar>("Problem.kg");  
     }
 
     Scalar porosityAtPos(const GlobalPosition& globalPos) const
     { return 0.0; }
 
+    void updatePhi(std::vector<Scalar> phi){ 
+        this->phi_ = phi;
+    }
+
+    Scalar phasefield(const Element& element,
+                        const SubControlVolume& scv)
+    {
+        return phi_[scv.elementIndex()];
+    }
+
+    Scalar phi0delta_(const Element& element,
+                        const SubControlVolume& scv)
+    {
+        return phasefield(element, scv)*ks_ + (1-phasefield(element, scv))*kg_;
+    }
 private:
-    Scalar K_;
+    std::vector<Scalar> phi_;
+    Scalar ks_;
+    Scalar kg_;
 };
 } // end namespace Dumux
 

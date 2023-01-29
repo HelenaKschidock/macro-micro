@@ -18,6 +18,8 @@ omega = 25e-4           # phasefield diffusivity/surface tension parameter (gamm
 delta = 1e-10           # regularization parameter
 kt = 1.0                # constant deciding speed of expansion/contraction
 eqconc = 0.5            # equilibrium concentration 
+ks = 1.0                # conductivity of sand material
+kg = 0.0                # conductivity of void material
 
 Name = cell_phase       # base name for VTK output files
 OutputInterval = 0.1    # interval size for VTK output
