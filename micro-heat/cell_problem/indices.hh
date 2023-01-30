@@ -26,7 +26,7 @@ template<int offset = 0>
 struct CellProblemIndices
 {   //Primary variable indices (one weight per dimension)
     static const int psi1Idx = 0;      
-    static const int psi2Idx = 1;  
+    //static const int psi2Idx = 1;  
 };
 
 // \}

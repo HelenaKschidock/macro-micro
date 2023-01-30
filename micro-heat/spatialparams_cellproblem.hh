@@ -38,21 +38,21 @@ class CellProblemSpatialParams
     static constexpr int dimWorld = GridView::dimensionworld;
     using GlobalPosition = typename SubControlVolume::GlobalPosition;
 
+    using AllenCahnTypeTag = Properties::TTag::PlainAllenCahn;
+    using ACSolutionVector = GetPropType<AllenCahnTypeTag, Properties::SolutionVector>;
+
 public:
     using PermeabilityType = Scalar;
 
     CellProblemSpatialParams(std::shared_ptr<const GridGeometry> gridGeometry)
-    : ParentType(gridGeometry), phi_(gridGeometry->gridView().size(0), 0.0)
+    : ParentType(gridGeometry)//, phi_(gridGeometry->gridView().size(0), 0.0)
     {   
         ks_ = getParam<Scalar>("Problem.ks");
         kg_ = getParam<Scalar>("Problem.kg");  
     }
 
-    Scalar porosityAtPos(const GlobalPosition& globalPos) const
-    { return 0.0; }
-
-    void updatePhi(std::vector<Scalar> phi){ 
-        this->phi_ = phi;
+    void updatePhi(ACSolutionVector& phi){ 
+        phi_ = phi;
     }
 
     Scalar phasefield(const Element& element,
@@ -67,7 +67,7 @@ public:
         return phasefield(element, scv)*ks_ + (1-phasefield(element, scv))*kg_;
     }
 private:
-    std::vector<Scalar> phi_;
+    ACSolutionVector phi_;
     Scalar ks_;
     Scalar kg_;
 };
