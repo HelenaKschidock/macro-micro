@@ -56,7 +56,7 @@ public:
     template<class Problem, class Element, class Scv>
     Scalar phi0delta(const Problem& problem, 
                         const Element& element,
-                              const Scv& scv)
+                              const Scv& scv) const
     {
         return problem.spatialParams().phi0delta(element, scv);
     }
