@@ -56,13 +56,13 @@ public:
     }
 
     Scalar phasefield(const Element& element,
-                        const SubControlVolume& scv)
+                        const SubControlVolume& scv) const
     {
         return phi_[scv.elementIndex()];
     }
 
-    Scalar phi0delta_(const Element& element,
-                        const SubControlVolume& scv)
+    Scalar phi0delta(const Element& element,
+                        const SubControlVolume& scv) const
     {
         return phasefield(element, scv)*ks_ + (1-phasefield(element, scv))*kg_;
     }
