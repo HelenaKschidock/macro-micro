@@ -78,6 +78,7 @@ int main(int argc, char** argv)
 
     // define the type tag for this problem
     using AllenCahnTypeTag = Properties::TTag::PlainAllenCahn;
+    using CellProblemTypeTag = Properties::TTag::CellProblem;
 
     // initialize MPI, finalize is done automatically on exit
     const auto& mpiHelper = Dune::MPIHelper::instance(argc, argv);
@@ -93,18 +94,18 @@ int main(int argc, char** argv)
     GridManager<GetPropType<AllenCahnTypeTag, Properties::Grid>> gridManager;
     gridManager.init();
 
-    ////////////////////////////////////////////////////////////
-    // run instationary non-linear problem on this grid
-    ////////////////////////////////////////////////////////////
-
     // we compute on the leaf grid view
     const auto& leafGridView = gridManager.grid().leafGridView();
 
     // create the finite volume grid geometry
-    using GridGeometry = GetPropType<AllenCahnTypeTag, Properties::GridGeometry>;
+    using GridGeometry = GetPropType<AllenCahnTypeTag, Properties::GridGeometry>;   //TODO care that works, is same for CP
     auto gridGeometry = std::make_shared<GridGeometry>(leafGridView);
     gridGeometry->update(leafGridView);
 
+    ////////////////////////////////////////////////////////////
+    // Set up the Allen-Cahn Problem
+    ////////////////////////////////////////////////////////////
+    
     // the allen-cahn problem (initial and boundary conditions)
     using ACProblem = GetPropType<AllenCahnTypeTag, Properties::Problem>;
     auto acProblem = std::make_shared<ACProblem>(gridGeometry);
@@ -116,24 +117,17 @@ int main(int argc, char** argv)
     auto dt = getParam<Scalar>("TimeLoop.DtInitial");
 
     // the solution vector
-    using SolutionVector = GetPropType<AllenCahnTypeTag, Properties::SolutionVector>;
-    auto phiPtr = std::make_shared<SolutionVector>();
-    SolutionVector phi = *phiPtr;
+    using ACSolutionVector = GetPropType<AllenCahnTypeTag, Properties::SolutionVector>;
+    auto phiPtr = std::make_shared<ACSolutionVector>();
+    ACSolutionVector phi = *phiPtr;
     acProblem->applyInitialSolution(phi);
-    auto phiOldPtr = std::make_shared<SolutionVector>();
+    auto phiOldPtr = std::make_shared<ACSolutionVector>();
     *phiOldPtr = phi;
 
     // the grid variables
     using ACGridVariables = GetPropType<AllenCahnTypeTag, Properties::GridVariables>;
     auto acGridVariables = std::make_shared<ACGridVariables>(acProblem, gridGeometry);
     acGridVariables->init(phi);
-
-    // intialize the vtk output module
-    using ACIOFields = GetPropType<AllenCahnTypeTag, Properties::IOFields>;
-    VtkOutputModule<ACGridVariables, SolutionVector> vtkWriter(*acGridVariables, phi, acProblem->name());
-    ACIOFields::initOutputModule(vtkWriter); //!< Add model specific output fields
-    vtkWriter.addField(acProblem->getPorosityAsField(phi), "porosity");
-    vtkWriter.write(0.0);
 
     // instantiate time loop
     auto timeLoop = std::make_shared<CheckPointTimeLoop<Scalar>>(0.0, dt, tEnd);
@@ -155,6 +149,48 @@ int main(int argc, char** argv)
     using NewtonSolver = Dumux::NewtonSolver<ACAssembler, LinearSolver>;
     auto nonLinearSolver = std::make_shared<NewtonSolver>(acAssembler, linearSolver);
 
+    //TODO: solve one step of AC to init cell problem
+
+    ////////////////////////////////////////////////////////////
+    // Set up the Cell Problem
+    ////////////////////////////////////////////////////////////
+
+    //setup the cell problem
+    using CPProblem = GetPropType<CellProblemTypeTag, Properties::Problem>;
+    auto cpProblem = std::make_shared<CPProblem>(gridGeometry);
+
+    // the solution vector
+    using CPSolutionVector = GetPropType<CellProblemTypeTag, Properties::SolutionVector>;
+    CPSolutionVector psi(leafGridView.size(0));
+
+    // the grid variables
+    using CPGridVariables = GetPropType<CellProblemTypeTag, Properties::GridVariables>;
+    auto cpGridVariables = std::make_shared<CPGridVariables>(cpProblem, gridGeometry);
+    cpGridVariables->init(psi);
+
+    // TODO the assembler with time loop for stationary problem
+    // (using nonlinear solver for now, should be linear)
+    using CPAssembler = FVAssembler<CellProblemTypeTag, DiffMethod::numeric>; //DiffMethod::analytic?
+    auto cpAssembler = std::make_shared<CPAssembler>(cpProblem, gridGeometry, cpGridVariables);
+    
+    
+    //LinearPDESolver<CPAssembler, LinearSolver> cpSolver(cpAssembler, linearSolver);
+    
+    // the non-linear solver REPLACE
+    using CPNewtonSolver = Dumux::NewtonSolver<CPAssembler, LinearSolver>;
+    auto cpNonLinearSolver = std::make_shared<CPNewtonSolver>(cpAssembler, linearSolver);
+
+    ////////////////////////////////////////////////////////////
+    // Set up the Output
+    ////////////////////////////////////////////////////////////
+
+    // intialize the vtk output module
+    using ACIOFields = GetPropType<AllenCahnTypeTag, Properties::IOFields>;
+    VtkOutputModule<ACGridVariables, ACSolutionVector> vtkWriter(*acGridVariables, phi, acProblem->name());
+    ACIOFields::initOutputModule(vtkWriter); //!< Add model specific output fields
+    vtkWriter.addField(acProblem->getPorosityAsField(phi), "porosity");
+    vtkWriter.write(0.0);
+
     // time loop
     timeLoop->start(); do
     {
@@ -163,7 +199,8 @@ int main(int argc, char** argv)
 
         //calculate porosty
         acProblem->calculatePorosity(phi);
-
+        cpProblem->spatialParams().updatePhi(phi);
+        cpNonLinearSolver->solve(psi); 
         // make the new solution the old solution
         *phiOldPtr = phi;
         acGridVariables->advanceTimeStep();
@@ -181,6 +218,7 @@ int main(int argc, char** argv)
         {
             vtkWriter.write(timeLoop->time());
         }
+        //TODO add cp output
 
     } while (!timeLoop->finished());
 

@@ -22,65 +22,24 @@
 #ifndef DUMUX_CELL_PROBLEM_PROPERTIES_HH
 #define DUMUX_CELL_PROBLEM_PROPERTIES_HH
 
-#include <dumux/porousmediumflow/1p/model.hh>
-
 #include <dune/grid/yaspgrid.hh>
+#include <dumux/common/properties.hh>
 #include <dumux/discretization/cctpfa.hh>
-#include "cell_problem/localresidual.hh"
+
 #include "problem_cellproblem.hh"
-#include "spatialparams_cellproblem.hh"
 #include "cell_problem/model.hh"
-#include "cell_problem/volumevariables.hh"
 
 namespace Dumux::Properties {
 
 namespace TTag {
-struct CellProblem { using InheritsFrom = std::tuple<OneP, CCTpfaModel>; };
+struct CellProblem { using InheritsFrom = std::tuple<CCTpfaModel, CellModel>; }; 
 }
 
 template<class TypeTag>
-struct Grid<TypeTag, TTag::CellProblem> { using type = Dune::YaspGrid<2>; };
+struct Grid<TypeTag, TTag::CellProblem> { using type = Dune::SPGrid<double, 2>;}; //Dune::YaspGrid<2>; };
 
 template<class TypeTag>
 struct Problem<TypeTag, TTag::CellProblem> { using type = CellProblemProblem<TypeTag>; };
-
-template<class TypeTag>
-struct SpatialParams<TypeTag, TTag::CellProblem>
-{
-private:
-    using GridGeometry = GetPropType<TypeTag, Properties::GridGeometry>;
-    using Scalar = GetPropType<TypeTag, Properties::Scalar>;
-public:
-    using type = CellProblemSpatialParams<GridGeometry, Scalar>;
-};
-
-template<class PV, class MT>
-struct CellProblemVolumeVariablesTraits
-{
-    using PrimaryVariables = PV;
-    using ModelTraits = MT;
-};
-
-template<class TypeTag>
-struct ModelTraits<TypeTag, TTag::CellProblem> { using type = CellProblemModelTraits; };
-
-//! Set the volume variables property
-template<class TypeTag>
-struct VolumeVariables<TypeTag, TTag::CellProblem>
-{   
-    using PV = GetPropType<TypeTag, Properties::PrimaryVariables>;
-    using MT = GetPropType<TypeTag, Properties::ModelTraits>;
-
-    using Traits = PhasefieldVolumeVariablesTraits<PV, MT>;
-public:
-    using type = CellProblemVolumeVariables<Traits>;
-};
-
-template<class TypeTag>
-struct LocalResidual<TypeTag, TTag::CellProblem> { using type = CellProblemLocalResidual<TypeTag>; };
-
-template<class TypeTag>
-struct EnableGridVolumeVariablesCache<TypeTag, TTag::CellProblem> { static constexpr bool value = true; };
 
 template<class TypeTag>
 struct EnableGridFluxVariablesCache<TypeTag, TTag::CellProblem> { static constexpr bool value = true; };

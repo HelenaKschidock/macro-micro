@@ -46,8 +46,9 @@ class CellProblemProblem : public PorousMediumFlowProblem<TypeTag>
 
 public:
     CellProblemProblem(std::shared_ptr<const GridGeometry> gridGeometry)
-    : ParentType(gridGeometry) {}
-    
+    : ParentType(gridGeometry)
+    {}
+
     BoundaryTypes boundaryTypesAtPos(const GlobalPosition& globalPos) const
     {
         BoundaryTypes bcTypes;
@@ -57,15 +58,7 @@ public:
         return bcTypes;
     }
 
-    // #### Temperature distribution
-    // We need to specify a constant temperature for our isothermal problem.
-    // Fluid properties that depend on temperature will be calculated with this value.
-    // [[codeblock]]
-    // TODO
-    Scalar temperature() const
-    { return 283.15; /*10°C*/ }
-
-}; // end class definition of OnePTestProblem
+};
 } // end namespace Dumux
 // [[/codeblock]]
 // [[/content]]
