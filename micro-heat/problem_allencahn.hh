@@ -151,8 +151,7 @@ public:
     //to make available to vtkOutput, porosity has to be converted to a Field
     //TODO maybe separate into updateVtkOutput, getPorosity
     const std::vector<Scalar>& getPorosityAsField(SolutionVector &sol)
-    {   Scalar f;
-        std::vector<Scalar> poro(sol.size(), calculatePorosity(sol));
+    {   std::vector<Scalar> poro(sol.size(), calculatePorosity(sol));
         poro_ = poro; 
         return poro_; 
     }

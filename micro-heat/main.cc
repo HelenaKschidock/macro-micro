@@ -189,18 +189,31 @@ int main(int argc, char** argv)
     VtkOutputModule<ACGridVariables, ACSolutionVector> vtkWriter(*acGridVariables, phi, acProblem->name());
     ACIOFields::initOutputModule(vtkWriter); //!< Add model specific output fields
     vtkWriter.addField(acProblem->getPorosityAsField(phi), "porosity");
+    vtkWriter.addField(cpProblem->getK00AsField(psi), "k00");
+    vtkWriter.addField(cpProblem->getK10AsField(psi), "k10");
+    vtkWriter.addField(cpProblem->getK01AsField(psi), "k01");
+    vtkWriter.addField(cpProblem->getK11AsField(psi), "k11");
+    vtkWriter.addField(psi, "psi");
     vtkWriter.write(0.0);
 
     // time loop
     timeLoop->start(); do
     {
-        // linearize & solve
+        // linearize & solve the allen cahn problem
         nonLinearSolver->solve(phi, *timeLoop);
 
-        //calculate porosty
-        acProblem->calculatePorosity(phi);
+        //calculate porosity
+        //acProblem->calculatePorosity(phi); part of output writer
+
+        //update Phi in the cell problem
         cpProblem->spatialParams().updatePhi(phi);
+
+        //solve the cell problem
         cpNonLinearSolver->solve(psi); 
+
+        //calculate the conductivity tensor
+        //cpProblem->calculateConductivityTensorComponent(psi, 0, 0); //etc. for other indices. part of the output writer
+
         // make the new solution the old solution
         *phiOldPtr = phi;
         acGridVariables->advanceTimeStep();
