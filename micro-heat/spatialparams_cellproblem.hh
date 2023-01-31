@@ -49,10 +49,15 @@ public:
     {   
         ks_ = getParam<Scalar>("Problem.ks");
         kg_ = getParam<Scalar>("Problem.kg");  
+        psiIndex_ = 0;
     }
 
     void updatePhi(ACSolutionVector& phi){ 
         phi_ = phi;
+    }
+
+    void updatePsiIndex(int& psiIndex){ 
+        psiIndex_ = psiIndex;
     }
 
     Scalar phasefield(const Element& element,
@@ -66,10 +71,16 @@ public:
     {
         return phasefield(element, scv)*ks_ + (1-phasefield(element, scv))*kg_;
     }
+
+    int getPsiIndex() const
+    {
+        return psiIndex_;
+    }
 private:
     ACSolutionVector phi_;
     Scalar ks_;
     Scalar kg_;
+    int psiIndex_;
 };
 } // end namespace Dumux
 

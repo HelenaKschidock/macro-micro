@@ -89,8 +89,7 @@ public:
                        const ElementFluxVarsCache& elemFluxVarsCache) const
     {   NumEqVector flux;
         //const auto& fluxVarsCache = elemFluxVarsCache[scvf]; 
-        //for (int k = 0; k < numComponents; ++k)
-        //{
+
         int k = 0; 
         // Get the inside and outside volume variables
         const auto& insideScv = fvGeometry.scv(scvf.insideScvIdx());
@@ -112,8 +111,8 @@ public:
         
         //unit vector in dimension k
         GravityVector e_k(0.0); 
-        e_k[k] = -1.0;  //TODO +/-?
-
+        e_k[problem.spatialParams().getPsiIndex()] = -1.0;  //TODO +/-?
+        
         const auto alpha_inside = vtmv(scvf.unitOuterNormal(), insideVolVars.phi0delta(problem, element, insideScv), e_k)*insideVolVars.extrusionFactor();
 
         flux[k] = tij*(valInside - valOutside) + Extrusion::area(fvGeometry, scvf)*alpha_inside;

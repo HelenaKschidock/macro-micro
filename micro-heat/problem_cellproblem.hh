@@ -59,47 +59,50 @@ public:
         return bcTypes;
     }
 
-    Scalar calculateConductivityTensorComponent(SolutionVector &sol, int iIdx, int jIdx) const //TODO
+    Scalar calculateConductivityTensorComponent(SolutionVector &psi1, SolutionVector &psi2, int iIdx, int jIdx) const //TODO
     {   
-        return 0.0; 
+        return 0.0;
     }
 
     //to make available to vtkOutput, porosity has to be converted to a Field
-    const std::vector<Scalar>& getK00AsField(SolutionVector &sol)
+    const std::vector<Scalar>& getK00AsField(SolutionVector &psi1, SolutionVector &psi2)
     {   
-        std::vector<Scalar> k00(sol.size(), calculateConductivityTensorComponent(sol, 0, 0));
+        std::vector<Scalar> k00(psi1.size(), calculateConductivityTensorComponent(psi1, psi2, 0, 0));
         k00_ = k00;
         return k00_; 
     }
 
     //to make available to vtkOutput, porosity has to be converted to a Field
-    const std::vector<Scalar>& getK10AsField(SolutionVector &sol)
+    const std::vector<Scalar>& getK10AsField(SolutionVector &psi1, SolutionVector &psi2)
     {   
-        std::vector<Scalar> k10(sol.size(), calculateConductivityTensorComponent(sol, 1, 0));
+        std::vector<Scalar> k10(psi1.size(), calculateConductivityTensorComponent(psi1, psi2, 1, 0));
         k10_ = k10;
         return k10_; 
     }
 
     //to make available to vtkOutput, porosity has to be converted to a Field
-    const std::vector<Scalar>& getK01AsField(SolutionVector &sol)
+    const std::vector<Scalar>& getK01AsField(SolutionVector &psi1, SolutionVector &psi2)
     {   
-        std::vector<Scalar> k01(sol.size(), calculateConductivityTensorComponent(sol, 0, 1));
+        std::vector<Scalar> k01(psi1.size(), calculateConductivityTensorComponent(psi1, psi2, 0, 1));
         k01_ = k01;
         return k01_; 
     }
 
     //to make available to vtkOutput, porosity has to be converted to a Field
-    const std::vector<Scalar>& getK11AsField(SolutionVector &sol)
+    const std::vector<Scalar>& getK11AsField(SolutionVector &psi1, SolutionVector &psi2)
     {   
-        std::vector<Scalar> k11(sol.size(), calculateConductivityTensorComponent(sol, 1, 1));
+        std::vector<Scalar> k11(psi1.size(), calculateConductivityTensorComponent(psi1, psi2, 1, 1));
         k11_ = k11;
         return k11_; 
     }
 private:
+    // components of the effective upscaled conductivity matrix K
     std::vector<Scalar> k00_;
     std::vector<Scalar> k10_;
     std::vector<Scalar> k01_;
     std::vector<Scalar> k11_;
+    //field of components of K before integration
+    SolutionVector kij_; //
 
 
 };
