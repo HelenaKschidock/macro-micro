@@ -44,6 +44,14 @@ class CellProblemProblem : public PorousMediumFlowProblem<TypeTag>
 
     static constexpr int dimWorld = GridView::dimensionworld;
     using SolutionVector = GetPropType<TypeTag, Properties::SolutionVector>;
+    using Vector = Dune::FieldVector<Scalar,1>;
+
+    using Indices = typename GetPropType<TypeTag, Properties::ModelTraits>::Indices;
+
+    enum {
+        psiIdx = Indices::psiIdx
+    };
+    
 
 public:
     CellProblemProblem(std::shared_ptr<const GridGeometry> gridGeometry)
@@ -59,9 +67,31 @@ public:
         return bcTypes;
     }
 
-    Scalar calculateConductivityTensorComponent(SolutionVector &psi1, SolutionVector &psi2, int iIdx, int jIdx) const //TODO
+    Scalar calculateConductivityTensorComponent(SolutionVector &sol1, SolutionVector &sol2, int iIdx, int jIdx) //TODO
     {   
-        return 0.0;
+        return integrateGridFunction(this->gridGeometry(), effectiveConductivityField(sol1[psiIdx], sol2[psiIdx], iIdx, jIdx), order);
+    }
+
+    Vector effectiveConductivityField(Vector &psi1, Vector &psi2, int iIdx, int jIdx){
+        //TODO use correct operators
+        Vector dPsi;
+        Vector delta_ij(0.0);
+        if (iIdx == jIdx){
+            Vector ones(1.0);
+            delta_ij = ones;
+        }
+        if (jIdx ==0){
+            dPsi = partialDerivativePsi(psi1, iIdx);
+        }
+        else{
+            dPsi = partialDerivativePsi(psi2, iIdx);
+        }
+        return this->spatialParams().phi0deltaField()*(delta_ij + dPsi);
+    }
+
+    Vector partialDerivativePsi(Vector &psi, int derivDim)
+    {
+        return psi; //TO BE IMPLEMENTED
     }
 
     //to make available to vtkOutput, porosity has to be converted to a Field
@@ -95,6 +125,9 @@ public:
         k11_ = k11;
         return k11_; 
     }
+
+    std::size_t order = 1; 
+
 private:
     // components of the effective upscaled conductivity matrix K
     std::vector<Scalar> k00_;
