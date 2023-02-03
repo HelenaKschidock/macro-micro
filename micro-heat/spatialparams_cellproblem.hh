@@ -40,6 +40,12 @@ class CellProblemSpatialParams
 
     using AllenCahnTypeTag = Properties::TTag::PlainAllenCahn;
     using ACSolutionVector = GetPropType<AllenCahnTypeTag, Properties::SolutionVector>;
+    using Vector = Dune::FieldVector<Scalar,1>;
+    using PhasefieldIndices = typename GetPropType<AllenCahnTypeTag, Properties::ModelTraits>::Indices;
+
+    enum {
+        phiIdx = PhasefieldIndices::phiIdx
+    };
 
 public:
     using PermeabilityType = Scalar;
@@ -52,8 +58,8 @@ public:
         psiIndex_ = 0;
     }
 
-    void updatePhi(ACSolutionVector& phi){ 
-        phi_ = phi;
+    void updatePhi(ACSolutionVector& sol){ 
+        phi_ = sol[phiIdx];
     }
 
     void updatePsiIndex(int& psiIndex){ 
@@ -76,8 +82,15 @@ public:
     {
         return psiIndex_;
     }
+
+    Vector phi0deltaField() const
+    { 
+        Vector ones(1.0);
+        return mv(ks_, phi_) + mv(kg_, ones) - mv(kg_,phi_);
+    }
+
 private:
-    ACSolutionVector phi_;
+    Vector phi_;
     Scalar ks_;
     Scalar kg_;
     int psiIndex_;
