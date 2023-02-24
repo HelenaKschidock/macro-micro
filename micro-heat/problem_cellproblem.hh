@@ -23,14 +23,17 @@
 
 #include <dumux/porousmediumflow/problem.hh>
 #include <dumux/common/boundarytypes.hh>
+#include <dumux/discretization/cellcentered/tpfa/computetransmissibility.hh>
+#include <dumux/discretization/extrusion.hh>
+#include <dumux/common/fvproblemwithspatialparams.hh>
 
 namespace Dumux {
 
 template<class TypeTag>
-class CellProblemProblem : public PorousMediumFlowProblem<TypeTag>
+class CellProblemProblem : public FVProblemWithSpatialParams<TypeTag> //PorousMediumFlowProblem<TypeTag>
 {
     // A few convenience aliases used throughout this class.
-    using ParentType = PorousMediumFlowProblem<TypeTag>;
+    using ParentType = FVProblemWithSpatialParams<TypeTag>; //PorousMediumFlowProblem<TypeTag>;
     using GridView = typename GetPropType<TypeTag, Properties::GridGeometry>::GridView;
     using Element = typename GridView::template Codim<0>::Entity;
     using GlobalPosition = typename Element::Geometry::GlobalCoordinate;
@@ -44,9 +47,10 @@ class CellProblemProblem : public PorousMediumFlowProblem<TypeTag>
 
     static constexpr int dimWorld = GridView::dimensionworld;
     using SolutionVector = GetPropType<TypeTag, Properties::SolutionVector>;
-    using Vector = Dune::FieldVector<Scalar,1>;
-
+    using DimWorldVector = Dune::FieldVector<Scalar, GridView::dimensionworld>;
     using Indices = typename GetPropType<TypeTag, Properties::ModelTraits>::Indices;
+    using Vector = Dune::FieldVector<Scalar, 1>; //TODO
+    using Extrusion = Extrusion_t<GridGeometry>;
 
     enum {
         psiIdx = Indices::psiIdx
@@ -56,7 +60,19 @@ class CellProblemProblem : public PorousMediumFlowProblem<TypeTag>
 public:
     CellProblemProblem(std::shared_ptr<const GridGeometry> gridGeometry)
     : ParentType(gridGeometry)
-    {}
+    { 
+        kij_.resize(gridGeometry->numDofs());
+        d0psi1_.resize(gridGeometry->numDofs());
+        d1psi1_.resize(gridGeometry->numDofs());
+        d0psi2_.resize(gridGeometry->numDofs());
+        d1psi2_.resize(gridGeometry->numDofs());
+        dPsi_.resize(gridGeometry->numDofs());
+        delta_ij_.resize(gridGeometry->numDofs());
+        d_0Psi_.resize(gridGeometry->numDofs());
+        d_1Psi_.resize(gridGeometry->numDofs());
+        d_.resize(gridGeometry->numDofs());
+
+    }
 
     BoundaryTypes boundaryTypesAtPos(const GlobalPosition& globalPos) const
     {
@@ -67,77 +83,162 @@ public:
         return bcTypes;
     }
 
-    Scalar calculateConductivityTensorComponent(SolutionVector &sol1, SolutionVector &sol2, int iIdx, int jIdx) //TODO
+    Scalar calculateConductivityTensorComponent(int psiIdx, int derivIdx) //TODO
     {   
-        return integrateGridFunction(this->gridGeometry(), effectiveConductivityField(sol1[psiIdx], sol2[psiIdx], iIdx, jIdx), order);
+        return integrateGridFunction(this->gridGeometry(), effectiveConductivityField(psiIdx, derivIdx), order);
     }
 
-    Vector effectiveConductivityField(Vector &psi1, Vector &psi2, int iIdx, int jIdx){
-        //TODO use correct operators
-        Vector dPsi;
-        Vector delta_ij(0.0);
-        if (iIdx == jIdx){
-            Vector ones(1.0);
-            delta_ij = ones;
+    std::vector<Scalar>& effectiveConductivityField(int psiIdx, int derivIdx){
+        //TODO use correct operators, types
+        if (psiIdx == derivIdx){
+            std::fill(delta_ij_.begin(), delta_ij_.end(), 1.0);
         }
-        if (jIdx ==0){
-            dPsi = partialDerivativePsi(psi1, iIdx);
+        else
+        {
+            std::fill(delta_ij_.begin(), delta_ij_.end(), 0.0);
         }
-        else{
-            dPsi = partialDerivativePsi(psi2, iIdx);
+        dPsi_ = partialDerivativePsi(psiIdx, derivIdx);
+
+        //d_ = phi0delta*(delta_ij_ + dPsi_)
+        for (int i = 0; i < dPsi_.size(); ++i)
+        {
+            d_[i] = this->spatialParams().phi0deltaIdx(i)*(delta_ij_[i] + dPsi_[i]);
         }
-        return this->spatialParams().phi0deltaField()*(delta_ij + dPsi);
+        return d_;
     }
 
-    Vector partialDerivativePsi(Vector &psi, int derivDim)
-    {
-        return psi; //TO BE IMPLEMENTED
+    std::vector<Scalar>& partialDerivativePsi(int psiIdx, int derivIdx)
+    {   assert((psiIdx==0)||(psiIdx ==1));
+        assert((derivIdx==0)||(derivIdx == 1));
+        if ((psiIdx == 0) && (derivIdx == 0))
+        {
+            return d0psi1_;
+        }
+        else if ((psiIdx == 0) && (derivIdx == 1))
+        {
+            return d1psi1_;
+        }
+        else if ((psiIdx == 1) && (derivIdx == 0))
+        {
+            return d0psi2_;
+        }
+        else
+        {
+            return d1psi2_;
+        }
+    }
+
+    //see dumux-adapter/examples/ff-pm/flow-over-square-2d/main_ff.cc "setInterfaceVelocities"
+    //TODO parallelize and speed up by using assembler instead
+    template<class Problem, class Assembler, class GridVariables, class SolutionVector>
+    void computePsiDerivatives(const Problem &problem,
+                                const Assembler& assembler,
+                                const GridVariables &gridVars,
+                                const SolutionVector &psi, int psiIdx)
+    {   
+        const auto &gridGeometry = this->gridGeometry();
+        auto fvGeometry = localView(gridGeometry);
+        
+        const auto gridVolVars = assembler.gridVariables().curGridVolVars();
+        auto elemVolVars = localView(gridVolVars);
+       
+        DimWorldVector cellDeriv(0.0); 
+
+        for (const auto &element : elements(gridGeometry.gridView())) {
+            
+            fvGeometry.bindElement(element);
+            elemVolVars.bindElement(element, fvGeometry, psi);
+            Scalar scvVolume(0.0);
+            
+            for (const auto &scvf : scvfs(fvGeometry)) {
+                if (!scvf.boundary()) 
+                {
+                    int k = 0; 
+                    
+                    // Get the inside and outside volume variables
+                    const auto& insideScv = fvGeometry.scv(scvf.insideScvIdx());
+                    const auto& outsideScv = fvGeometry.scv(scvf.outsideScvIdx());
+                    
+                    const auto& insideVolVars = elemVolVars[scvf.insideScvIdx()];
+                    const auto valInside = insideVolVars.priVar(k);
+                    
+                    const Scalar ti = computeTpfaTransmissibility(fvGeometry, scvf, insideScv, 
+                                                      insideVolVars.phi0delta(problem, element, insideScv), 
+                                                      insideVolVars.extrusionFactor());
+                    // cf. dumux/phasefield/localresidual.hh
+                    // faces might lie on the periodic boundary, requiring the matching scvf of the scv
+                    // on the other side of the periodic boundary.
+                    auto outsideFvGeometry = localView(gridGeometry);
+                    const auto& periodicElement = gridGeometry.element(outsideScv.elementIndex());
+                    outsideFvGeometry.bind(periodicElement);
+                    auto outsideElemVolVars = localView(gridVolVars);
+                    outsideElemVolVars.bindElement(periodicElement, outsideFvGeometry, psi);
+                    
+                    Scalar tij = 0.0;
+                    Scalar valOutside = 0.0;
+                    for (const auto& outsideScvf : scvfs(outsideFvGeometry))
+                    {
+                        if (outsideScvf.unitOuterNormal() * scvf.unitOuterNormal() < -1 + 1e-6)
+                        {   //scvf.insideScvIdx() = outsideScvf.outsideScvIdx() = eIdxGlobal
+                            //scvf.outsideScvIdx() = outsideScvf.insideScvIdx() 
+                            const auto& outsideVolVars = outsideElemVolVars[outsideScvf.insideScvIdx()]; //
+                            
+                            
+                            valOutside = outsideVolVars.priVar(k);
+                            //below: element or periodic element?
+                            const Scalar tj = computeTpfaTransmissibility(fvGeometry, outsideScvf, outsideScv, outsideVolVars.phi0delta(problem, element, outsideScv), outsideVolVars.extrusionFactor());
+                            tij = scvf.area()*(tj)/(ti + tj);
+                            break;
+                        }
+                    }
+
+                    cellDeriv += scvf.area()*(valOutside - valInside)*tij*scvf.unitOuterNormal();
+                    scvVolume = insideScv.volume(); 
+                }
+                
+            }
+            if (scvVolume > 0.0){
+                cellDeriv /= scvVolume;
+            }
+            const int eIdxGlobal = gridGeometry.elementMapper().index(element);
+            d_0Psi_[eIdxGlobal] = cellDeriv[0];
+            d_1Psi_[eIdxGlobal] = cellDeriv[1];
+            
+        }
+        if(psiIdx==0)
+        {
+            d0psi1_ = d_0Psi_;
+            d1psi1_ = d_1Psi_;
+        }
+        else 
+        {
+            d0psi2_ = d_0Psi_;
+            d1psi2_ = d_1Psi_;
+        }
     }
 
     //to make available to vtkOutput, porosity has to be converted to a Field
-    const std::vector<Scalar>& getK00AsField(SolutionVector &psi1, SolutionVector &psi2)
+    const std::vector<Scalar>& getKijAsField(int derivIdx, int psiIdx)
     {   
-        std::vector<Scalar> k00(psi1.size(), calculateConductivityTensorComponent(psi1, psi2, 0, 0));
-        k00_ = k00;
-        return k00_; 
-    }
-
-    //to make available to vtkOutput, porosity has to be converted to a Field
-    const std::vector<Scalar>& getK10AsField(SolutionVector &psi1, SolutionVector &psi2)
-    {   
-        std::vector<Scalar> k10(psi1.size(), calculateConductivityTensorComponent(psi1, psi2, 1, 0));
-        k10_ = k10;
-        return k10_; 
-    }
-
-    //to make available to vtkOutput, porosity has to be converted to a Field
-    const std::vector<Scalar>& getK01AsField(SolutionVector &psi1, SolutionVector &psi2)
-    {   
-        std::vector<Scalar> k01(psi1.size(), calculateConductivityTensorComponent(psi1, psi2, 0, 1));
-        k01_ = k01;
-        return k01_; 
-    }
-
-    //to make available to vtkOutput, porosity has to be converted to a Field
-    const std::vector<Scalar>& getK11AsField(SolutionVector &psi1, SolutionVector &psi2)
-    {   
-        std::vector<Scalar> k11(psi1.size(), calculateConductivityTensorComponent(psi1, psi2, 1, 1));
-        k11_ = k11;
-        return k11_; 
+        std::vector<Scalar> kij(d0psi1_.size(), calculateConductivityTensorComponent(psiIdx, derivIdx));
+        kij_ = kij;
+        return kij_; 
     }
 
     std::size_t order = 1; 
 
 private:
     // components of the effective upscaled conductivity matrix K
-    std::vector<Scalar> k00_;
-    std::vector<Scalar> k10_;
-    std::vector<Scalar> k01_;
-    std::vector<Scalar> k11_;
-    //field of components of K before integration
-    SolutionVector kij_; //
-
-
+    std::vector<Scalar> kij_;
+    std::vector<Scalar> dPsi_;
+    std::vector<Scalar> d_0Psi_;
+    std::vector<Scalar> d_1Psi_;
+    std::vector<Scalar> delta_ij_;
+    std::vector<Scalar> d0psi1_;
+    std::vector<Scalar> d1psi1_;
+    std::vector<Scalar> d0psi2_;
+    std::vector<Scalar> d1psi2_;
+    std::vector<Scalar> d_;
 };
 } // end namespace Dumux
 // [[/codeblock]]

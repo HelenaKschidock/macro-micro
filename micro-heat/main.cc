@@ -70,7 +70,7 @@ void usage(const char *progName, const std::string &errorMsg)
         std::cout << errorMessageOut
                   << "\n";
     }
-}
+} 
 
 int main(int argc, char** argv)
 {
@@ -173,8 +173,6 @@ int main(int argc, char** argv)
     // (using nonlinear solver for now, should be linear)
     using CPAssembler = FVAssembler<CellProblemTypeTag, DiffMethod::numeric>; //DiffMethod::analytic?
     auto cpAssembler = std::make_shared<CPAssembler>(cpProblem, gridGeometry, cpGridVariables);
-    
-    
     //LinearPDESolver<CPAssembler, LinearSolver> cpSolver(cpAssembler, linearSolver);
     
     // the non-linear solver REPLACE
@@ -190,15 +188,16 @@ int main(int argc, char** argv)
     VtkOutputModule<ACGridVariables, ACSolutionVector> vtkWriter(*acGridVariables, phi, acProblem->name());
     ACIOFields::initOutputModule(vtkWriter); //!< Add model specific output fields
     vtkWriter.addField(acProblem->getPorosityAsField(phi), "porosity");
-    vtkWriter.addField(cpProblem->getK00AsField(psi1, psi2), "k00");
-    vtkWriter.addField(cpProblem->getK10AsField(psi1, psi2), "k10");
-    vtkWriter.addField(cpProblem->getK01AsField(psi1, psi2), "k01");
-    vtkWriter.addField(cpProblem->getK11AsField(psi1, psi2), "k11");
+    vtkWriter.addField(cpProblem->getKijAsField(0, 0), "k00");
+    vtkWriter.addField(cpProblem->getKijAsField(1, 0), "k10");
+    vtkWriter.addField(cpProblem->getKijAsField(0, 1), "k01");
+    vtkWriter.addField(cpProblem->getKijAsField(1, 1), "k11");
     vtkWriter.addField(psi1, "psi1");
     vtkWriter.addField(psi2, "psi2");
     vtkWriter.write(0.0);
 
     // time loop
+    int psiIdx;
     timeLoop->start(); do
     {
         // linearize & solve the allen cahn problem
@@ -210,11 +209,22 @@ int main(int argc, char** argv)
         //update Phi in the cell problem
         cpProblem->spatialParams().updatePhi(phi);
 
+        std::cout << "Solve Cell Problem 1" << std::endl;
         //solve the cell problems 
+        psiIdx = 0;
+        cpProblem->spatialParams().updatePsiIndex(psiIdx);
         cpGridVariables->update(psi1);
         cpNonLinearSolver->solve(psi1); 
+        std::cout << "Solve Psi Derivative" << std::endl;
+        cpProblem->computePsiDerivatives(*cpProblem, *cpAssembler, *cpGridVariables, psi1, psiIdx);
+
+        std::cout << "Solve Cell Problem 2" << std::endl;
+        psiIdx = 1;
+        cpProblem->spatialParams().updatePsiIndex(psiIdx);
         cpGridVariables->update(psi2);
         cpNonLinearSolver->solve(psi2); 
+        std::cout << "Solve Psi Derivative" << std::endl;
+        cpProblem->computePsiDerivatives(*cpProblem, *cpAssembler, cpGridVariables, psi2, psiIdx);
 
         //calculate the conductivity tensor
         //cpProblem->calculateConductivityTensorComponent(psi, 0, 0); //etc. for other indices. part of the output writer
