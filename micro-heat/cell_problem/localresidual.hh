@@ -54,7 +54,7 @@ class CellProblemLocalResidual : public CCLocalResidual<TypeTag>
     using ModelTraits = GetPropType<TypeTag, Properties::ModelTraits>;
     using Indices = typename ModelTraits::Indices;
     static constexpr int numComponents = ModelTraits::numComponents();
-    using GravityVector = Dune::FieldVector<Scalar, GridView::dimensionworld>;
+    using DimWorldVector = Dune::FieldVector<Scalar, GridView::dimensionworld>;
 
 public:
     using ParentType::ParentType;
@@ -80,6 +80,7 @@ public:
     }
 
     //from cctpfa/darcyslaw, 
+    //TODO check for periodic boundary (see dumux-phasefield)
     template<class Problem, class ElementVolumeVariables, class ElementFluxVarsCache>
     NumEqVector computeFlux(const Problem& problem,
                        const Element& element,
@@ -94,23 +95,18 @@ public:
         // Get the inside and outside volume variables
         const auto& insideScv = fvGeometry.scv(scvf.insideScvIdx());
         const auto& outsideScv = fvGeometry.scv(scvf.outsideScvIdx());
-        const auto& insideVolVars = elemVolVars[insideScv];
+        const auto& insideVolVars = elemVolVars[scvf.insideScvIdx()]; //insideScv];
         const auto& outsideVolVars = elemVolVars[scvf.outsideScvIdx()];
 
-        // do averaging for the density over all neighboring elements
-        //const auto rho = scvf.boundary() ? outsideVolVars.density(phaseIdx)
-        //                                    : (insideVolVars.density(phaseIdx) + outsideVolVars.density(phaseIdx))*0.5;
-        
         // Obtain inside and outside pressures
         const auto valInside = insideVolVars.priVar(k);
         const auto valOutside = outsideVolVars.priVar(k);
 
-        //currently without fluxVarsCache (add functions from Darcyslaw)
-        //const auto& tij = fluxVarsCache.advectionTij();
+        //currently without fluxVarsCache (add functions from Darcyslaw to speed up)
         const auto& tij = calculateTransmissibility(problem, element, fvGeometry, elemVolVars, scvf);
         
         //unit vector in dimension k
-        GravityVector e_k(0.0); 
+        DimWorldVector e_k(0.0); 
         e_k[problem.spatialParams().getPsiIndex()] = -1.0;  //TODO +/-?
         
         const auto alpha_inside = vtmv(scvf.unitOuterNormal(), insideVolVars.phi0delta(problem, element, insideScv), e_k)*insideVolVars.extrusionFactor();
@@ -130,7 +126,7 @@ public:
         }
         //}
         return flux;
-    }
+    }   
 
     //from dumux/flux/cctpfa/darcyslaw.hh
     // The flux variables cache has to be bound to an element prior to flux calculations
@@ -171,7 +167,7 @@ public:
             // harmonic mean (check for division by zero!)
             // TODO: This could lead to problems!? Is there a better way to do this?
             if (ti*tj <= 0.0)
-                tij = 0;
+                tij = 0.0;
             else
                 tij = Extrusion::area(fvGeometry, scvf)*(ti * tj)/(ti + tj);
         }

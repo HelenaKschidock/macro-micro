@@ -32,7 +32,7 @@
 namespace Dumux::Properties {
 
 namespace TTag {
-struct CellProblem { using InheritsFrom = std::tuple<CCTpfaModel, CellModel>; }; 
+struct CellProblem { using InheritsFrom = std::tuple<CellModel, CCTpfaModel>; }; 
 }
 
 template<class TypeTag>

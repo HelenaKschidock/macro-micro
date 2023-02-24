@@ -83,17 +83,16 @@ public:
         return psiIndex_;
     }
 
-    Vector phi0deltaField() const
-    { 
-        Vector ones(1.0);
-        return mv(ks_, phi_) + mv(kg_, ones) - mv(kg_,phi_);
+    Scalar phi0deltaIdx(int idx)
+    {
+        return ks_*phi_[idx] + kg_*(1-phi_[idx]);
     }
-
 private:
-    Vector phi_;
+    Dune::FieldVector<double, 1> phi_;
     Scalar ks_;
     Scalar kg_;
     int psiIndex_;
+
 };
 } // end namespace Dumux
 
