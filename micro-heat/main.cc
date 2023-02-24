@@ -203,8 +203,8 @@ int main(int argc, char** argv)
         // linearize & solve the allen cahn problem
         nonLinearSolver->solve(phi, *timeLoop);
 
-        //calculate porosity
-        //acProblem->calculatePorosity(phi); part of output writer
+        //calculate porosity (not necessary, done by output writer)
+        std::cout << "Phi = " << acProblem->calculatePorosity(phi) << std::endl;
 
         //update Phi in the cell problem
         cpProblem->spatialParams().updatePhi(phi);
@@ -226,8 +226,11 @@ int main(int argc, char** argv)
         std::cout << "Solve Psi Derivative" << std::endl;
         cpProblem->computePsiDerivatives(*cpProblem, *cpAssembler, cpGridVariables, psi2, psiIdx);
 
-        //calculate the conductivity tensor
-        //cpProblem->calculateConductivityTensorComponent(psi, 0, 0); //etc. for other indices. part of the output writer
+        //calculate the conductivity tensor (not necessary, done by output writer)
+        std::cout << "k00 = " << cpProblem->calculateConductivityTensorComponent(0,0) << std::endl;
+        std::cout << "k10 = " << cpProblem->calculateConductivityTensorComponent(1,0) << std::endl;
+        std::cout << "k01 = " << cpProblem->calculateConductivityTensorComponent(0,1) << std::endl;
+        std::cout << "k11 = " << cpProblem->calculateConductivityTensorComponent(1,1) << std::endl;
 
         // make the new solution the old solution
         *phiOldPtr = phi;
