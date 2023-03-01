@@ -217,7 +217,7 @@ public:
         }
     }
 
-    //to make available to vtkOutput, porosity has to be converted to a Field
+    //to make available to vtkOutput, conductivity has to be converted to a Field
     const std::vector<Scalar>& getKijAsField(int derivIdx, int psiIdx)
     {   
         std::vector<Scalar> kij(d0psi1_.size(), calculateConductivityTensorComponent(psiIdx, derivIdx));
