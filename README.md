@@ -7,7 +7,7 @@
 
 ## Building the executables
 1. Rebuild the dumux-adapter by navigating into your `dumux` folder and executing `dunecontrol --only=dumux-adapter all`. Repeat this step any time you modify the CMake files.
-2. Build the nutils micro executable by navigating into `dumux/dumux-adapter/build-cmake/examples/macro-micro/python-micro-heat` and executing `make copy_micro_heat_python`. Repeat this step any time you modify the micro simulation files.
+2. Build the nutils micro executable by navigating into `dumux/dumux-adapter/build-cmake/examples/macro-micro/nutils-micro-heat` and executing `make copy_micro_heat_python`. Repeat this step any time you modify the micro simulation files.
 3. Build the DuMuX macro executable by navigating into `dumux/dumux-adapter/build-cmake/examples/macro-micro/macro-heat` and executing `make test_macro_heat`. (By default, this uses [CCTPFA](https://dumux.org/docs/doxygen/releases/3.2/a00461_source.html) discretization. To use [Box discretization](https://dumux.org/docs/doxygen/releases/3.1/a02046.html), build `make test_macro_heat_box` instead.)
 
 ## Running the simulating
@@ -17,7 +17,7 @@
 ### Running the coupled simulation
 * Set the `RunWithCoupling ` parameter in `macro-heat/params.input`to `true`. Rebuild afterwards.
 * Open two separate shells. In one of them, run the macro simulation as above.
-* In the other, navigate to `dumux/dumux-adapter/build-cmake/examples/macro-micro/python-micro-heat` and execute `python3 run-micro-manager.py`.
+* In the other, navigate to `dumux/dumux-adapter/build-cmake/examples/macro-micro/nutils-micro-heat` and execute `python3 run-micro-manager.py`.
 * To run the micro code in parallel, use `mpirun -n <NThreads> python3 run-micro-problems.py` instead.
 
 ## Choosing the parameters
