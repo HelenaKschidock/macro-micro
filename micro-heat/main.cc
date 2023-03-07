@@ -121,7 +121,9 @@ int main(int argc, char** argv)
     auto phiPtr = std::make_shared<ACSolutionVector>();
     ACSolutionVector phi = *phiPtr;
     acProblem->applyInitialSolution(phi);
+
     auto phiOldPtr = std::make_shared<ACSolutionVector>();
+
     *phiOldPtr = phi;
 
     // the grid variables
@@ -148,7 +150,7 @@ int main(int argc, char** argv)
     // the non-linear solver
     using NewtonSolver = Dumux::NewtonSolver<ACAssembler, LinearSolver>;
     auto nonLinearSolver = std::make_shared<NewtonSolver>(acAssembler, linearSolver);
-
+    
     //TODO: solve one step of AC to init cell problem
 
     ////////////////////////////////////////////////////////////
@@ -174,7 +176,7 @@ int main(int argc, char** argv)
     using CPAssembler = FVAssembler<CellProblemTypeTag, DiffMethod::numeric>; //DiffMethod::analytic?
     auto cpAssembler = std::make_shared<CPAssembler>(cpProblem, gridGeometry, cpGridVariables);
     //LinearPDESolver<CPAssembler, LinearSolver> cpSolver(cpAssembler, linearSolver);
-    
+
     // the non-linear solver REPLACE
     using CPNewtonSolver = Dumux::NewtonSolver<CPAssembler, LinearSolver>;
     auto cpNonLinearSolver = std::make_shared<CPNewtonSolver>(cpAssembler, linearSolver);
@@ -224,7 +226,7 @@ int main(int argc, char** argv)
         cpGridVariables->update(psi2);
         cpNonLinearSolver->solve(psi2); 
         std::cout << "Solve Psi Derivative" << std::endl;
-        cpProblem->computePsiDerivatives(*cpProblem, *cpAssembler, cpGridVariables, psi2, psiIdx);
+        cpProblem->computePsiDerivatives(*cpProblem, *cpAssembler, *cpGridVariables, psi2, psiIdx);
 
         //calculate the conductivity tensor (not necessary, done by output writer)
         std::cout << "k00 = " << cpProblem->calculateConductivityTensorComponent(0,0) << std::endl;
