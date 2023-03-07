@@ -62,7 +62,7 @@ public:
         xi_ = getParam<Scalar>("Problem.xi");
         kt_ = getParam<Scalar>("Problem.kt");
         eqconc_ = getParam<Scalar>("Problem.eqconc");
-        updateReactionRate(); 
+        conc_ = 0.5; //TODO check should not be called before/check initialization
     }
 
     BoundaryTypes boundaryTypesAtPos(const GlobalPosition &globalPos) const
@@ -93,14 +93,14 @@ public:
         const auto& priVars = elemVolVars[scv].priVars();
 
         source[phiIdx] = -omega_ * pPrime(priVars[phiIdx]);
-        source += 4*xi_*priVars[phiIdx]*(1.0-priVars[phiIdx]) * reactionRate_;
+        source += 4*xi_*priVars[phiIdx]*(1.0-priVars[phiIdx]) * reactionRate();
         return source;
     }
 
-    void updateReactionRate(){ //(TODO use correctly)
-        reactionRate_ = reactionRate();
+    void updateConcentration(Scalar conc)
+    {
+        conc_ = conc;
     }
-
     /*!
      * \brief Returns the interfaceVelocity to use in the source term (F(T))
      */
@@ -114,7 +114,7 @@ public:
      */
     Scalar concentration() const
     {
-        return 0.5;
+        return conc_;
     }
 
     PrimaryVariables initialAtPos(const GlobalPosition &globalPos) const
@@ -162,8 +162,8 @@ private:
     Scalar alpha_;
     Scalar kt_;
     Scalar eqconc_;
-    Scalar reactionRate_;
     std::vector<Scalar> poro_;
+    Scalar conc_;
 };
 
 } //end namespace Dumux
