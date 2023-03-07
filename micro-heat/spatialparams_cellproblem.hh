@@ -51,7 +51,7 @@ public:
     using PermeabilityType = Scalar;
 
     CellProblemSpatialParams(std::shared_ptr<const GridGeometry> gridGeometry)
-    : ParentType(gridGeometry)//, phi_(gridGeometry->gridView().size(0), 0.0)
+    : ParentType(gridGeometry)
     {   
         ks_ = getParam<Scalar>("Problem.ks");
         kg_ = getParam<Scalar>("Problem.kg");  

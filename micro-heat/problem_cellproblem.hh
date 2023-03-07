@@ -30,10 +30,9 @@
 namespace Dumux {
 
 template<class TypeTag>
-class CellProblemProblem : public FVProblemWithSpatialParams<TypeTag> //PorousMediumFlowProblem<TypeTag>
+class CellProblemProblem : public FVProblemWithSpatialParams<TypeTag> 
 {
-    // A few convenience aliases used throughout this class.
-    using ParentType = FVProblemWithSpatialParams<TypeTag>; //PorousMediumFlowProblem<TypeTag>;
+    using ParentType = FVProblemWithSpatialParams<TypeTag>; 
     using GridView = typename GetPropType<TypeTag, Properties::GridGeometry>::GridView;
     using Element = typename GridView::template Codim<0>::Entity;
     using GlobalPosition = typename Element::Geometry::GlobalCoordinate;
@@ -49,7 +48,7 @@ class CellProblemProblem : public FVProblemWithSpatialParams<TypeTag> //PorousMe
     using SolutionVector = GetPropType<TypeTag, Properties::SolutionVector>;
     using DimWorldVector = Dune::FieldVector<Scalar, GridView::dimensionworld>;
     using Indices = typename GetPropType<TypeTag, Properties::ModelTraits>::Indices;
-    using Vector = Dune::FieldVector<Scalar, 1>; //TODO
+    using Vector = Dune::FieldVector<Scalar, 1>; 
     using Extrusion = Extrusion_t<GridGeometry>;
 
     enum {
@@ -89,7 +88,7 @@ public:
     }
 
     std::vector<Scalar>& effectiveConductivityField(int psiIdx, int derivIdx){
-        //TODO use correct operators, types
+        
         if (psiIdx == derivIdx){
             std::fill(delta_ij_.begin(), delta_ij_.end(), 1.0);
         }
@@ -99,7 +98,6 @@ public:
         }
         dPsi_ = partialDerivativePsi(psiIdx, derivIdx);
 
-        //d_ = phi0delta*(delta_ij_ + dPsi_)
         for (int i = 0; i < dPsi_.size(); ++i)
         {
             d_[i] = this->spatialParams().phi0deltaIdx(i)*(delta_ij_[i] + dPsi_[i]);
@@ -129,7 +127,6 @@ public:
     }
 
     //see dumux-adapter/examples/ff-pm/flow-over-square-2d/main_ff.cc "setInterfaceVelocities"
-    //TODO parallelize and speed up by using assembler instead
     template<class Problem, class Assembler, class GridVariables, class SolutionVector>
     void computePsiDerivatives(const Problem &problem,
                                 const Assembler& assembler,
@@ -179,13 +176,10 @@ public:
                     for (const auto& outsideScvf : scvfs(outsideFvGeometry))
                     {
                         if (outsideScvf.unitOuterNormal() * scvf.unitOuterNormal() < -1 + 1e-6)
-                        {   //scvf.insideScvIdx() = outsideScvf.outsideScvIdx() = eIdxGlobal
-                            //scvf.outsideScvIdx() = outsideScvf.insideScvIdx() 
+                        {   
                             const auto& outsideVolVars = outsideElemVolVars[outsideScvf.insideScvIdx()]; //
                             
-                            
                             valOutside = outsideVolVars.priVar(k);
-                            //below: element or periodic element?
                             const Scalar tj = computeTpfaTransmissibility(fvGeometry, outsideScvf, outsideScv, outsideVolVars.phi0delta(problem, element, outsideScv), outsideVolVars.extrusionFactor());
                             tij = scvf.area()*(tj)/(ti + tj);
                             break;
@@ -228,7 +222,6 @@ public:
     std::size_t order = 1; 
 
 private:
-    // components of the effective upscaled conductivity matrix K
     std::vector<Scalar> kij_;
     std::vector<Scalar> dPsi_;
     std::vector<Scalar> d_0Psi_;
@@ -241,6 +234,5 @@ private:
     std::vector<Scalar> d_;
 };
 } // end namespace Dumux
-// [[/codeblock]]
-// [[/content]]
+
 #endif

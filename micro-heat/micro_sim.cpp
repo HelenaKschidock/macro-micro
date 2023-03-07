@@ -67,8 +67,6 @@ private:
     const double pi_ = 3.14159265358979323846;
     int _sim_id;
     int _dims;
-    //double _micro_scalar_data;
-    //std::vector<double> _micro_vector_data;
     double _k_00;
     double _k_01;
     double _k_10;
@@ -88,7 +86,6 @@ private:
     std::shared_ptr<GridGeometry> _gridGeometry;
     ACSolutionVector _phi;
     ACSolutionVector _phiOld;
-    //std::shared_ptr<ACSolutionVector> _phiOldPtr;
     CPSolutionVector _psi1;
     CPSolutionVector _psi2;
     GridManager _gridManager;
@@ -104,7 +101,6 @@ void MicroSimulation::initialize()
     using namespace Dumux;
 
     std::cout << "Initialize micro problem (" << _sim_id << ")\n";
-    //_micro_scalar_data = 0;
     _k_00 = 0;
     _k_01 = 0;
     _k_10 = 0;
@@ -114,7 +110,6 @@ void MicroSimulation::initialize()
     Parameters::init("params.input");//argc, argv); TODO 
 
     // try to create a grid (from the given grid file or the input file)
-    //GridManager<GetPropType<AllenCahnTypeTag, Properties::Grid>> gridManager;
     _gridManager.init();
 
     // we compute on the leaf grid view
@@ -137,7 +132,6 @@ void MicroSimulation::initialize()
     auto dt = getParam<Scalar>("TimeLoop.DtInitial");
 
     // the solution vector
-    //TODO check
     auto phiPtr = std::make_shared<ACSolutionVector>();
     _phi = *phiPtr;
     _acProblem->applyInitialSolution(_phi);
@@ -160,8 +154,6 @@ void MicroSimulation::initialize()
     // the non-linear solver
     _acNonLinearSolver = std::make_shared<ACNewtonSolver>(_acAssembler, _linearSolver);
 
-    //TODO: solve one step of AC to init cell problem
-
     ////////////////////////////////////////////////////////////
     // Set up the Cell Problem
     ////////////////////////////////////////////////////////////
@@ -170,7 +162,6 @@ void MicroSimulation::initialize()
     _cpProblem = std::make_shared<CPProblem>(_gridGeometry);
 
     // the solution vectors
-    //using CPSolutionVector = GetPropType<CellProblemTypeTag, Properties::SolutionVector>;
     CPSolutionVector psi1(leafGridView.size(0));
     _psi1 = psi1;
     CPSolutionVector psi2(leafGridView.size(0));
@@ -212,9 +203,7 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
     
     _timeLoop->setTimeStepSize(dt);
 
-    //! Here, insert your code, changing the data and casting it to the correct type
-    // create double variable from macro_write_data["micro_scalar_data"]; which is a python float
-    //double macro_scalar_data = macro_write_data["macro-scalar-data"].cast<double>();
+    //read concentration from preCICE
     double conc = macro_write_data["concentration"].cast<double>();
 
     //input macro concentration into allen-cahn problem
@@ -252,20 +241,9 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
     _k_01 = _cpProblem->calculateConductivityTensorComponent(0,1);
     _k_11 = _cpProblem->calculateConductivityTensorComponent(1,1);
 
-    /*
-    // make the new solution the old solution
-    _phiOld = _phi;
-    _acGridVariables->advanceTimeStep();
-
-    // advance to the time loop to the next step
-    _timeLoop->advanceTimeStep();
-
-    // report statistics of this time step
-    _timeLoop->reportTimeStep();
-    */
-
     // create python dict for micro_write_data
     py::dict micro_write_data;
+
     // add micro_scalar_data and micro_vector_data to micro_write_data
     micro_write_data["k_00"] = _k_00;
     micro_write_data["k_10"] = _k_10;
@@ -309,7 +287,3 @@ PYBIND11_MODULE(micro_sim, m) {
         .def("reload_checkpoint", &MicroSimulation::reload_checkpoint)
         .def("get_dims", &MicroSimulation::get_dims);
 }
-
-// compile with 
-// c++ -O3 -Wall -shared -std=c++11 -fPIC $(python3 -m pybind11 --includes) cpp_dummy.cpp -o cpp_dummy$(python3-config --extension-suffix)
-// then from the same directory run python3 -c "import cpp_dummy; cpp_dummy.MicroSimulation(1)
