@@ -62,7 +62,7 @@ public:
         xi_ = getParam<Scalar>("Problem.xi");
         kt_ = getParam<Scalar>("Problem.kt");
         eqconc_ = getParam<Scalar>("Problem.eqconc");
-        conc_ = 0.5; //TODO check should not be called before/check initialization
+        conc_ = 0.5; 
     }
 
     BoundaryTypes boundaryTypesAtPos(const GlobalPosition &globalPos) const
@@ -149,7 +149,6 @@ public:
     }
 
     //to make available to vtkOutput, porosity has to be converted to a Field
-    //TODO maybe separate into updateVtkOutput, getPorosity
     const std::vector<Scalar>& getPorosityAsField(SolutionVector &sol)
     {   std::vector<Scalar> poro(sol.size(), calculatePorosity(sol));
         poro_ = poro; 
