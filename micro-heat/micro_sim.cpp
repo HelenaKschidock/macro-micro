@@ -51,9 +51,9 @@ class MicroSimulation
     using LinearSolver = Dumux::UMFPackBackend;
     using ACNewtonSolver = Dumux::NewtonSolver<ACAssembler, LinearSolver>;
     using CPNewtonSolver = Dumux::NewtonSolver<CPAssembler, LinearSolver>;
-    using GridGeometry = Dumux::GetPropType<AllenCahnTypeTag, Dumux::Properties::GridGeometry>;   //TODO care that works, is same for CP
+    using GridGeometry = Dumux::GetPropType<AllenCahnTypeTag, Dumux::Properties::GridGeometry>;   
     using Scalar = Dumux::GetPropType<AllenCahnTypeTag, Dumux::Properties::Scalar>;
-
+    using GridManager = Dumux::GridManager<Dumux::GetPropType<AllenCahnTypeTag, Dumux::Properties::Grid>>;
 public:
     MicroSimulation(int sim_id);
     void initialize();
@@ -74,10 +74,10 @@ private:
     double _k_10;
     double _k_11;
     double _porosity;
-    double _checkpoint;
 
     std::shared_ptr<CPNewtonSolver> _cpNonLinearSolver;
-    std::shared_ptr<ACNewtonSolver> _nonLinearSolver;
+    std::shared_ptr<ACNewtonSolver> _acNonLinearSolver;
+    std::shared_ptr<LinearSolver> _linearSolver;
     std::shared_ptr<ACAssembler> _acAssembler;
     std::shared_ptr<CPAssembler> _cpAssembler;
     std::shared_ptr<Dumux::CheckPointTimeLoop<double> > _timeLoop;
@@ -85,14 +85,18 @@ private:
     std::shared_ptr<CPProblem> _cpProblem;
     std::shared_ptr<CPGridVariables> _cpGridVariables;
     std::shared_ptr<ACGridVariables> _acGridVariables;
+    std::shared_ptr<GridGeometry> _gridGeometry;
     ACSolutionVector _phi;
-    std::shared_ptr<ACSolutionVector> _phiOldPtr;
+    ACSolutionVector _phiOld;
+    //std::shared_ptr<ACSolutionVector> _phiOldPtr;
     CPSolutionVector _psi1;
     CPSolutionVector _psi2;
+    GridManager _gridManager;
+
 };
 
 // Constructor
-MicroSimulation::MicroSimulation(int sim_id) : _sim_id(sim_id), _dims(3), _k_00(0), _k_01(0), _k_10(0),_k_11(0),_porosity(0), _checkpoint(0) {};
+MicroSimulation::MicroSimulation(int sim_id) : _sim_id(sim_id), _dims(2), _k_00(0), _k_01(0), _k_10(0),_k_11(0),_porosity(0), _phiOld(0) {};
 
 // Initialize
 void MicroSimulation::initialize()
@@ -105,29 +109,27 @@ void MicroSimulation::initialize()
     _k_01 = 0;
     _k_10 = 0;
     _k_11 = 0;
-    //_micro_vector_data.clear();
-    _checkpoint = 0;
 
     // parse command line arguments and input file
     Parameters::init("params.input");//argc, argv); TODO 
 
     // try to create a grid (from the given grid file or the input file)
-    GridManager<GetPropType<AllenCahnTypeTag, Properties::Grid>> gridManager;
-    gridManager.init();
+    //GridManager<GetPropType<AllenCahnTypeTag, Properties::Grid>> gridManager;
+    _gridManager.init();
 
     // we compute on the leaf grid view
-    const auto& leafGridView = gridManager.grid().leafGridView();
+    const auto& leafGridView = _gridManager.grid().leafGridView();
 
     // create the finite volume grid geometry
-    auto gridGeometry = std::make_shared<GridGeometry>(leafGridView);
-    gridGeometry->update(leafGridView);
+    _gridGeometry = std::make_shared<GridGeometry>(leafGridView);
+    _gridGeometry->update(leafGridView);
 
     ////////////////////////////////////////////////////////////
     // Set up the Allen-Cahn Problem
     ////////////////////////////////////////////////////////////
     
     // the allen-cahn problem (initial and boundary conditions)
-    _acProblem = std::make_shared<ACProblem>(gridGeometry);
+    _acProblem = std::make_shared<ACProblem>(_gridGeometry);
 
     // get some time loop parameters
     const auto tEnd = getParam<Scalar>("TimeLoop.TEnd");
@@ -139,11 +141,10 @@ void MicroSimulation::initialize()
     auto phiPtr = std::make_shared<ACSolutionVector>();
     _phi = *phiPtr;
     _acProblem->applyInitialSolution(_phi);
-    _phiOldPtr = std::make_shared<ACSolutionVector>();
-    *_phiOldPtr = _phi;
+    _phiOld = _phi;
 
     // the grid variables
-    _acGridVariables = std::make_shared<ACGridVariables>(_acProblem, gridGeometry);
+    _acGridVariables = std::make_shared<ACGridVariables>(_acProblem, _gridGeometry);
     _acGridVariables->init(_phi);
 
     // instantiate time loop
@@ -151,13 +152,13 @@ void MicroSimulation::initialize()
     _timeLoop->setMaxTimeStepSize(maxDt);
 
     // the assembler with time loop for instationary problem
-    _acAssembler = std::make_shared<ACAssembler>(_acProblem, gridGeometry, _acGridVariables, _timeLoop, *_phiOldPtr);
+    _acAssembler = std::make_shared<ACAssembler>(_acProblem, _gridGeometry, _acGridVariables, _timeLoop, _phiOld);
 
     // the linear solver
-    auto linearSolver = std::make_shared<LinearSolver>();
+    _linearSolver = std::make_shared<LinearSolver>();
 
     // the non-linear solver
-    _nonLinearSolver = std::make_shared<ACNewtonSolver>(_acAssembler, linearSolver);
+    _acNonLinearSolver = std::make_shared<ACNewtonSolver>(_acAssembler, _linearSolver);
 
     //TODO: solve one step of AC to init cell problem
 
@@ -166,7 +167,7 @@ void MicroSimulation::initialize()
     ////////////////////////////////////////////////////////////
 
     //setup the cell problem
-    _cpProblem = std::make_shared<CPProblem>(gridGeometry);
+    _cpProblem = std::make_shared<CPProblem>(_gridGeometry);
 
     // the solution vectors
     //using CPSolutionVector = GetPropType<CellProblemTypeTag, Properties::SolutionVector>;
@@ -176,16 +177,16 @@ void MicroSimulation::initialize()
     _psi2 = psi2;
 
     // the grid variables
-    _cpGridVariables = std::make_shared<CPGridVariables>(_cpProblem, gridGeometry);
+    _cpGridVariables = std::make_shared<CPGridVariables>(_cpProblem, _gridGeometry);
     _cpGridVariables->init(_psi1);
 
     // TODO the assembler with time loop for stationary problem
     // (using nonlinear solver for now, should be linear)
-    _cpAssembler = std::make_shared<CPAssembler>(_cpProblem, gridGeometry, _cpGridVariables);
+    _cpAssembler = std::make_shared<CPAssembler>(_cpProblem, _gridGeometry, _cpGridVariables);
     //LinearPDESolver<CPAssembler, LinearSolver> cpSolver(cpAssembler, linearSolver);
     
     // the non-linear solver REPLACE
-    _cpNonLinearSolver = std::make_shared<CPNewtonSolver>(_cpAssembler, linearSolver);
+    _cpNonLinearSolver = std::make_shared<CPNewtonSolver>(_cpAssembler, _linearSolver);
 
     // intialize the vtk output module
     _timeLoop->start();
@@ -194,6 +195,12 @@ void MicroSimulation::initialize()
 // Solve
 py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
 {   
+    // set leafgridView
+    // TODO: find way to set leafGridView to shared private variable (then redundant)
+    // we compute on the leaf grid view
+    const auto& leafGridView = _gridManager.grid().leafGridView();
+    _gridGeometry->update(leafGridView);
+
     std::cout << "Solve timestep of micro problem (" << _sim_id << ")\n";
 
     // assert(dt != 0);
@@ -203,31 +210,21 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
         exit(1);
     }
     
-    //_timeLoop->setTimeStepSize(dt); TODO
+    _timeLoop->setTimeStepSize(dt);
 
     //! Here, insert your code, changing the data and casting it to the correct type
     // create double variable from macro_write_data["micro_scalar_data"]; which is a python float
     //double macro_scalar_data = macro_write_data["macro-scalar-data"].cast<double>();
     double conc = macro_write_data["concentration"].cast<double>();
 
-    std::cout << "CHECK A" << std::endl;
-
     //input macro concentration into allen-cahn problem
     _acProblem->updateConcentration(conc);
 
-    std::cout << "CHECK B" << std::endl;
-    std::cout << "CHECK _PHI.size = " <<_phi.size() << std::endl;
-   
-
     // linearize & solve the allen cahn problem
-    _nonLinearSolver->solve(_phi, *_timeLoop);
-
-    std::cout << "CHECK C" << std::endl;
+    _acNonLinearSolver->solve(_phi, *_timeLoop);
 
     //calculate porosity 
     _porosity = _acProblem->calculatePorosity(_phi);
-
-    std::cout << "CHECK D" << std::endl;
 
     //update Phi in the cell problem
     _cpProblem->spatialParams().updatePhi(_phi);
@@ -255,8 +252,9 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
     _k_01 = _cpProblem->calculateConductivityTensorComponent(0,1);
     _k_11 = _cpProblem->calculateConductivityTensorComponent(1,1);
 
+    /*
     // make the new solution the old solution
-    *_phiOldPtr = _phi;
+    _phiOld = _phi;
     _acGridVariables->advanceTimeStep();
 
     // advance to the time loop to the next step
@@ -264,6 +262,7 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
 
     // report statistics of this time step
     _timeLoop->reportTimeStep();
+    */
 
     // create python dict for micro_write_data
     py::dict micro_write_data;
@@ -282,14 +281,16 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
 void MicroSimulation::save_checkpoint()
 {
     std::cout << "Saving state of micro problem (" << _sim_id << ")\n";
-    _checkpoint = _k_00; //TODO
+    _phiOld = _phi; 
 }
 
 // Reload Checkpoint
 void MicroSimulation::reload_checkpoint()
-{
+{   
     std::cout << "Reverting to old state of micro problem (" << _sim_id << ")\n";
-    _k_00 = _checkpoint;
+    _phi = _phiOld;
+    _acGridVariables->update(_phi);
+    _acGridVariables->advanceTimeStep();
 }
 
 int MicroSimulation::get_dims()
