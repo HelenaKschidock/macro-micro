@@ -4,8 +4,8 @@
 1. Follow the setup instructions of the [dumux-adapter](https://github.com/precice/dumux-adapter "dumux-adapter"). You folder structure should look something like this: `dumux/dumux-adapter/`.
 2. Navigate into `dumux-adapter/examples/` and git clone this repo into `dumux-adapter/examples/macro-micro`.
 3. Add the line `add_subdirectory(macro-micro)` to `dumux-adapter/examples/CMakeLists.txt`.
-4. Navigate into `examples/macro-micro/micro-heat` and clone pybind into a subdirectory by running `git clone https://github.com/pybind/pybind11`. For more information, see also [https://github.com/pybind/cmake_example](https://github.com/pybind/cmake_examples).
-
+4. Navigate into `examples/macro-micro/micro-heat` and clone pybind into a subdirectory by running `git clone https://github.com/pybind/pybind11` (This installs the dev code. Release code might be preferable). For more information, see also [https://github.com/pybind/cmake_example](https://github.com/pybind/cmake_examples).
+5. Install pybind by running `pip install .` in the `pybind` directory.
 ## Building the executables
 1. Rebuild the dumux-adapter by navigating into your `dumux` folder and executing `dunecontrol --only=dumux-adapter all`. Repeat this step any time you modify the CMake files or to rebuild the DuMuX micro executable.
 2. Build the nutils micro executable by navigating into `dumux/dumux-adapter/build-cmake/examples/macro-micro/nutils-micro-heat` and executing `make copy_micro_heat_python`. Repeat this step any time you modify the micro simulation files.
