@@ -230,7 +230,6 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
 
     // We solve the linear system `A psi = r`.
     _cpAssembler->assembleJacobianAndResidual(_psi1); 
-    (*_r) *= -1.0; // We want to solve `Ax = -r`. //TODO does this apply?
     _cpLinearSolver->solve(*_A, _psi1, *_r);
 
     std::cout << "Solve Psi Derivative" << std::endl;
@@ -242,7 +241,6 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
     _cpGridVariables->update(_psi2);
 
     _cpAssembler->assembleJacobianAndResidual(_psi2); 
-    (*_r) *= -1.0; // We want to solve `Ax = -r`. //TODO does this apply?
     _cpLinearSolver->solve(*_A, _psi2, *_r);
 
     std::cout << "Solve Psi Derivative" << std::endl;
