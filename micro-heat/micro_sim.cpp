@@ -61,12 +61,10 @@ public:
     py::dict solve(py::dict macro_write_data, double dt);
     void save_checkpoint();
     void reload_checkpoint();
-    int get_dims();
 
 private:
     const double pi_ = 3.14159265358979323846;
     int _sim_id;
-    int _dims;
     double _k_00;
     double _k_01;
     double _k_10;
@@ -93,7 +91,7 @@ private:
 };
 
 // Constructor
-MicroSimulation::MicroSimulation(int sim_id) : _sim_id(sim_id), _dims(2), _k_00(0), _k_01(0), _k_10(0),_k_11(0),_porosity(0), _phiOld(0) {};
+MicroSimulation::MicroSimulation(int sim_id) : _sim_id(sim_id), _k_00(0), _k_01(0), _k_10(0),_k_11(0),_porosity(0), _phiOld(0) {};
 
 // Initialize
 void MicroSimulation::initialize()
@@ -271,11 +269,6 @@ void MicroSimulation::reload_checkpoint()
     _acGridVariables->advanceTimeStep();
 }
 
-int MicroSimulation::get_dims()
-{
-    return _dims;
-}
-
 PYBIND11_MODULE(micro_sim, m) {
     m.doc() = "pybind11 example plugin"; // optional module docstring
 
@@ -284,6 +277,5 @@ PYBIND11_MODULE(micro_sim, m) {
         .def("initialize", &MicroSimulation::initialize)
         .def("solve", &MicroSimulation::solve)
         .def("save_checkpoint", &MicroSimulation::save_checkpoint)
-        .def("reload_checkpoint", &MicroSimulation::reload_checkpoint)
-        .def("get_dims", &MicroSimulation::get_dims);
+        .def("reload_checkpoint", &MicroSimulation::reload_checkpoint);
 }
