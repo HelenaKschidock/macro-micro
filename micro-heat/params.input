@@ -3,28 +3,25 @@ Multithreading = false
 
 [TimeLoop]
 TEnd = 1                # end time of the simulation
-DtInitial = 5e-3        # initial time step size
-MaxTimeStepSize = 5e-2  # maximal time step size
+DtInitial = 0.001       # initial time step size
+MaxTimeStepSize = 0.001 # maximal time step size
 
 [Grid]
 LowerLeft = -0.5 -0.5   # lower left (front) corner of the domain
 UpperRight = 0.5 0.5    # upper right (back) corner of the domain
 Cells = 200 200         # grid resolution in each coordinate direction, currently square assumed for xi calculation
 Periodic = 1 1
+CenterX = 0.0
+CenterY = 0.0
 
 [Problem]
-xi = 5e-2               # phasefield parameter (lambda. also called by dumux-phasefield. set to 3/Ncells)
-omega = 25e-4           # phasefield diffusivity/surface tension parameter (gamma)
-delta = 1e-10           # regularization parameter
+xi = 0.02               # phasefield parameter (lambda. also called by dumux-phasefield. set to 4/Ncells)
+omega = 0.05            # phasefield diffusivity/surface tension parameter (gamma)
 kt = 1.0                # constant deciding speed of expansion/contraction
 eqconc = 0.5            # equilibrium concentration 
 ks = 1.0                # conductivity of sand material
 kg = 0.0                # conductivity of void material
-
 Name = cell_phase       # base name for VTK output files
 OutputInterval = 0.1    # interval size for VTK output
-
-CenterX = 0.0
-CenterY = 0.0
 Radius = 0.4
 PhasefieldICScaling = 4.0

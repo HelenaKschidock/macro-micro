@@ -64,7 +64,6 @@ void usage(const char *progName, const std::string &errorMsg)
                             "\t-Grid.Cells                grid resolution in each coordinate direction\n"
                             "\t-Problem.xi                phasefield parameter\n"
                             "\t-Problem.omega             phasefield diffusivity/surface tension parameter\n"
-                            "\t-Problem.delta             regularization parameter\n"
                             "\t-Problem.OutputInterval    interval size for VTK output\n"
                             "\t-Problem.Name              base name for VTK output files\n";
         std::cout << errorMessageOut

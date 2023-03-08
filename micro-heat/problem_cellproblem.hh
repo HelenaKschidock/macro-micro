@@ -84,6 +84,7 @@ public:
 
     Scalar calculateConductivityTensorComponent(int psiIdx, int derivIdx) //TODO
     {   
+        std::size_t order = 4; 
         return integrateGridFunction(this->gridGeometry(), effectiveConductivityField(psiIdx, derivIdx), order);
     }
 
@@ -218,8 +219,6 @@ public:
         kij_ = kij;
         return kij_; 
     }
-
-    std::size_t order = 1; 
 
 private:
     std::vector<Scalar> kij_;

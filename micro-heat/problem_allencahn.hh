@@ -62,7 +62,6 @@ public:
         xi_ = getParam<Scalar>("Problem.xi");
         kt_ = getParam<Scalar>("Problem.kt");
         eqconc_ = getParam<Scalar>("Problem.eqconc");
-        conc_ = 0.5; 
     }
 
     BoundaryTypes boundaryTypesAtPos(const GlobalPosition &globalPos) const
@@ -121,8 +120,8 @@ public:
     {
         PrimaryVariables values;
 
-        const static Scalar centerX = getParam<Scalar>("Problem.CenterX");
-        const static Scalar centerY = getParam<Scalar>("Problem.CenterY");
+        const static Scalar centerX = getParam<Scalar>("Grid.CenterX");
+        const static Scalar centerY = getParam<Scalar>("Grid.CenterY");
         const static Scalar radius = getParam<Scalar>("Problem.Radius");
         const static Scalar factor = getParam<Scalar>("Problem.PhasefieldICScaling");
         Scalar s = std::sqrt((globalPos[0]-centerX)*(globalPos[0]-centerX)
@@ -144,7 +143,7 @@ public:
 
     Scalar calculatePorosity(SolutionVector &sol) const //todo check
     {   
-        std::size_t order = 1; 
+        std::size_t order = 2; 
         return integrateGridFunction(this->gridGeometry(), sol, order);
     }
 
