@@ -49,11 +49,14 @@ class MicroSimulation
     using ACAssembler = Dumux::FVAssembler<AllenCahnTypeTag, Dumux::DiffMethod::numeric>;
     using CPAssembler = Dumux::FVAssembler<CellProblemTypeTag, Dumux::DiffMethod::numeric>; 
     using LinearSolver = Dumux::UMFPackBackend;
+    using CPLinearSolver = Dumux::ILUnBiCGSTABBackend;
     using ACNewtonSolver = Dumux::NewtonSolver<ACAssembler, LinearSolver>;
-    using CPNewtonSolver = Dumux::NewtonSolver<CPAssembler, LinearSolver>;
     using GridGeometry = Dumux::GetPropType<AllenCahnTypeTag, Dumux::Properties::GridGeometry>;   
     using Scalar = Dumux::GetPropType<AllenCahnTypeTag, Dumux::Properties::Scalar>;
     using GridManager = Dumux::GridManager<Dumux::GetPropType<AllenCahnTypeTag, Dumux::Properties::Grid>>;
+    using JacobianMatrix = Dumux::GetPropType<CellProblemTypeTag, Dumux::Properties::JacobianMatrix>;
+    using SolutionVector = Dumux::GetPropType<CellProblemTypeTag, Dumux::Properties::SolutionVector>;
+
 public:
     MicroSimulation(int sim_id);
     void initialize();
@@ -71,9 +74,9 @@ private:
     double _k_11;
     double _porosity;
 
-    std::shared_ptr<CPNewtonSolver> _cpNonLinearSolver;
     std::shared_ptr<ACNewtonSolver> _acNonLinearSolver;
     std::shared_ptr<LinearSolver> _linearSolver;
+    std::shared_ptr<CPLinearSolver> _cpLinearSolver;
     std::shared_ptr<ACAssembler> _acAssembler;
     std::shared_ptr<CPAssembler> _cpAssembler;
     std::shared_ptr<Dumux::CheckPointTimeLoop<double> > _timeLoop;
@@ -87,6 +90,8 @@ private:
     CPSolutionVector _psi1;
     CPSolutionVector _psi2;
     GridManager _gridManager;
+    std::shared_ptr<JacobianMatrix> _A;
+    std::shared_ptr<CPSolutionVector> _r;
 
 };
 
@@ -165,17 +170,18 @@ void MicroSimulation::initialize()
     CPSolutionVector psi2(leafGridView.size(0));
     _psi2 = psi2;
 
+    // The jacobian matrix (`A`), the solution vector (`psi`) and the residual (`r`) make up the linear system.
+    _A = std::make_shared<JacobianMatrix>();
+    _r = std::make_shared<SolutionVector>();
+    _cpLinearSolver = std::make_shared<CPLinearSolver>();
+
     // the grid variables
     _cpGridVariables = std::make_shared<CPGridVariables>(_cpProblem, _gridGeometry);
     _cpGridVariables->init(_psi1);
 
-    // TODO the assembler with time loop for stationary problem
-    // (using nonlinear solver for now, should be linear)
     _cpAssembler = std::make_shared<CPAssembler>(_cpProblem, _gridGeometry, _cpGridVariables);
     //LinearPDESolver<CPAssembler, LinearSolver> cpSolver(cpAssembler, linearSolver);
-    
-    // the non-linear solver REPLACE
-    _cpNonLinearSolver = std::make_shared<CPNewtonSolver>(_cpAssembler, _linearSolver);
+    _cpAssembler->setLinearSystem(_A,_r);
 
     // intialize the vtk output module
     _timeLoop->start();
@@ -221,7 +227,12 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
     int psiIdx = 0;
     _cpProblem->spatialParams().updatePsiIndex(psiIdx);
     _cpGridVariables->update(_psi1);
-    _cpNonLinearSolver->solve(_psi1); 
+
+    // We solve the linear system `A psi = r`.
+    _cpAssembler->assembleJacobianAndResidual(_psi1); 
+    (*_r) *= -1.0; // We want to solve `Ax = -r`. //TODO does this apply?
+    _cpLinearSolver->solve(*_A, _psi1, *_r);
+
     std::cout << "Solve Psi Derivative" << std::endl;
     _cpProblem->computePsiDerivatives(*_cpProblem, *_cpAssembler, *_cpGridVariables, _psi1, psiIdx);
 
@@ -229,7 +240,11 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
     psiIdx = 1;
     _cpProblem->spatialParams().updatePsiIndex(psiIdx);
     _cpGridVariables->update(_psi2);
-    _cpNonLinearSolver->solve(_psi2); 
+
+    _cpAssembler->assembleJacobianAndResidual(_psi2); 
+    (*_r) *= -1.0; // We want to solve `Ax = -r`. //TODO does this apply?
+    _cpLinearSolver->solve(*_A, _psi2, *_r);
+
     std::cout << "Solve Psi Derivative" << std::endl;
     _cpProblem->computePsiDerivatives(*_cpProblem, *_cpAssembler, *_cpGridVariables, _psi2, psiIdx);
 
