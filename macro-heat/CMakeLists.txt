@@ -1,4 +1,4 @@
-add_executable(test_macro_heat EXCLUDE_FROM_ALL main.cc)
+add_executable(test_macro_heat main.cc)
 target_compile_definitions(test_macro_heat PUBLIC "ENABLEMONOLITHIC=0")
 target_link_libraries(test_macro_heat PRIVATE dumux-precice)
 target_compile_definitions(test_macro_heat PUBLIC TYPETAG=OnePNIConductionCCTpfa)
