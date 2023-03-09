@@ -31,10 +31,7 @@
 #include <dune/grid/yaspgrid.hh>
 
 #include <dumux/discretization/elementsolution.hh>
-#include <dumux/discretization/box.hh>
 #include <dumux/discretization/cctpfa.hh>
-#include <dumux/discretization/ccmpfa.hh>
-#include <dumux/discretization/box.hh>
 
 #include <dumux/porousmediumflow/1p/model.hh>
 
@@ -50,9 +47,7 @@ namespace Dumux::Properties {
 // Create new type tags
 namespace TTag {
 struct OnePNIConduction { using InheritsFrom = std::tuple<OnePNI>; };
-struct OnePNIConductionBox { using InheritsFrom = std::tuple<OnePNIConduction, BoxModel>; };
 struct OnePNIConductionCCTpfa { using InheritsFrom = std::tuple<OnePNIConduction, CCTpfaModel>; };
-struct OnePNIConductionCCMpfa { using InheritsFrom = std::tuple<OnePNIConduction, CCMpfaModel>; };
 } // end namespace TTag
 
 // Set the grid type
