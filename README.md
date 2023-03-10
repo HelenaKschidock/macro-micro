@@ -172,8 +172,59 @@ python3 run-micro-problems.py
 
 To run the micro code in parallel, use `mpirun -n <NThreads> python3 run-micro-problems.py` instead.
 
+
+## Coupling with Nutils
+For the same problem, similar macro and micro simulations have also been [implemented in Nutils](https://github.com/IshaanDesai/coupled-heat-conduction), which can be coupled with their DuMuX counterparts. To do so:
+
+### Setup
+1. [Install Nutils](https://nutils.org/install.html).
+
+2. Clone the coupled-heat-conduction git into your macro-micro directory.
+```
+cd dumux-adapter/examples/macro-micro
+git clone https://github.com/IshaanDesai/coupled-heat-conduction
+``` 
+
+3. Add the line `add_subdirectory(coupled-heat-conduction)` to `macro-micro/CMakeLists.txt` to link it to CMake.
+
+4. To make the coupled-heat-conduction code available in your build directory, create a new empty `CMakeLists.txt` file within your source `coupled-heat-conduction` directory and add the following code:
+```
+add_custom_target(copy_nutils_all ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+
+```
+This simply copies it to the build directory and time you execute the `copy_nutils_all` command or anytime you rebuild the entire `dumux-precice` module.
+
+5. Modify the `coupled-heat-conduction/precice-config.xml` file such that it reads 
+```
+ <m2n:sockets from="Micro-Manager" to="Macro-heat" network="lo" exchange-directory="../"/>
+
+```
+This allows the macro and micro simulations to find each other.
+
+6. Rebuild the adapter.
+```
+dunecontrol --only=dumux-precice all
+```
+### Coupling the Nutils simulations
+You can couple the Nutils simulations with each other or with their counterpart in DuMuX, as long as one participant is the macro simulation and the other the micro simulation/micro manager. To do so, simply execute your chosen participants in separate shells.
+
+* Run the Nutils macro simulation via 
+```
+cd build-cmake/examples/macro-micro/coupled-heat-conduction
+python3 macro-heat.py
+``` 
+* Run the micro simulation via 
+```
+cd build-cmake/examples/macro-micro/coupled-heat-conduction
+python3 run-micro-manager.py
+``` 
+or in parallel via 
+```
+mpirun -n <num_procs> python3 run-micro-problems.py
+```
+
 # TBC
-## Coupling with Nutils 
 
 ## Note about the Macro parameters 
 In order to modify the simulation parameters, modify `params.input`.
