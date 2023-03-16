@@ -109,7 +109,7 @@ python3 dumux/bin/installexternal.py spgrid
 ./dune-common/bin/dunecontrol --opts=./dumux/cmake.opts all
 ```
 
-## Setup of The macro-micro Example
+## Setup of the macro-micro example
 
 **Version**: macro-micro `main` branch , pybind11 v2.10
 
