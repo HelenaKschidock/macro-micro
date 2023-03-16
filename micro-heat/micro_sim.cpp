@@ -50,6 +50,7 @@ class MicroSimulation
     using CPAssembler = Dumux::FVAssembler<CellProblemTypeTag, Dumux::DiffMethod::numeric>; 
     using LinearSolver = Dumux::UMFPackBackend;
     using CPLinearSolver = Dumux::ILUnBiCGSTABBackend;
+    using CPLinearPDESolver = Dumux::LinearPDESolver<CPAssembler, CPLinearSolver>;
     using ACNewtonSolver = Dumux::NewtonSolver<ACAssembler, LinearSolver>;
     using GridGeometry = Dumux::GetPropType<AllenCahnTypeTag, Dumux::Properties::GridGeometry>;   
     using Scalar = Dumux::GetPropType<AllenCahnTypeTag, Dumux::Properties::Scalar>;
@@ -77,6 +78,7 @@ private:
     std::shared_ptr<ACNewtonSolver> _acNonLinearSolver;
     std::shared_ptr<LinearSolver> _linearSolver;
     std::shared_ptr<CPLinearSolver> _cpLinearSolver;
+    std::shared_ptr <CPLinearPDESolver> _cpLinearPDESolver;
     std::shared_ptr<ACAssembler> _acAssembler;
     std::shared_ptr<CPAssembler> _cpAssembler;
     std::shared_ptr<Dumux::CheckPointTimeLoop<double> > _timeLoop;
@@ -90,8 +92,6 @@ private:
     CPSolutionVector _psi1;
     CPSolutionVector _psi2;
     GridManager _gridManager;
-    std::shared_ptr<JacobianMatrix> _A;
-    std::shared_ptr<CPSolutionVector> _r;
 
 };
 
@@ -171,8 +171,6 @@ void MicroSimulation::initialize()
     _psi2 = psi2;
 
     // The jacobian matrix (`A`), the solution vector (`psi`) and the residual (`r`) make up the linear system.
-    _A = std::make_shared<JacobianMatrix>();
-    _r = std::make_shared<SolutionVector>();
     _cpLinearSolver = std::make_shared<CPLinearSolver>();
 
     // the grid variables
@@ -180,8 +178,8 @@ void MicroSimulation::initialize()
     _cpGridVariables->init(_psi1);
 
     _cpAssembler = std::make_shared<CPAssembler>(_cpProblem, _gridGeometry, _cpGridVariables);
-    //LinearPDESolver<CPAssembler, LinearSolver> cpSolver(cpAssembler, linearSolver);
-    _cpAssembler->setLinearSystem(_A,_r);
+    
+    _cpLinearPDESolver = std::make_shared<CPLinearPDESolver>(_cpAssembler, _cpLinearSolver);
 
     // intialize the vtk output module
     _timeLoop->start();
@@ -228,30 +226,27 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
     _cpProblem->spatialParams().updatePsiIndex(psiIdx);
     _cpGridVariables->update(_psi1);
 
-    // We solve the linear system `A psi = r`.
-    _cpAssembler->assembleJacobianAndResidual(_psi1); 
-    _cpLinearSolver->solve(*_A, _psi1, *_r);
-
+    _cpLinearPDESolver->solve(_psi1);
+    
     std::cout << "Solve Psi Derivative" << std::endl;
     _cpProblem->computePsiDerivatives(*_cpProblem, *_cpAssembler, *_cpGridVariables, _psi1, psiIdx);
-
+    
     std::cout << "Solve Cell Problem 2" << std::endl;
     psiIdx = 1;
     _cpProblem->spatialParams().updatePsiIndex(psiIdx);
     _cpGridVariables->update(_psi2);
 
-    _cpAssembler->assembleJacobianAndResidual(_psi2); 
-    _cpLinearSolver->solve(*_A, _psi2, *_r);
+    _cpLinearPDESolver->solve(_psi2);
 
     std::cout << "Solve Psi Derivative" << std::endl;
     _cpProblem->computePsiDerivatives(*_cpProblem, *_cpAssembler, *_cpGridVariables, _psi2, psiIdx);
-
+    
     //calculate the conductivity tensor 
     _k_00 = _cpProblem->calculateConductivityTensorComponent(0,0);
     _k_10 = _cpProblem->calculateConductivityTensorComponent(1,0);
     _k_01 = _cpProblem->calculateConductivityTensorComponent(0,1);
     _k_11 = _cpProblem->calculateConductivityTensorComponent(1,1);
-
+    
     // create python dict for micro_write_data
     py::dict micro_write_data;
 
