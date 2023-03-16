@@ -181,7 +181,7 @@ cd dumux/dumux-adapter/build-cmake/examples/macro-micro/micro-heat
 python3 run_micro_manager.py 
 ```
 
-To run the micro code in parallel, use `mpirun -n <NThreads> python3 run-micro-problems.py` instead. **(not tested yet)**
+To run the micro code in parallel, use `mpirun -n <NThreads> python3 run-micro-manager.py` instead. **(not tested yet)**
 
 ## Coupling with Nutils
 
@@ -244,7 +244,7 @@ python3 run-micro-manager.py
 or in parallel via
 
 ```bash
-mpirun -n <num_procs> python3 run-micro-problems.py
+mpirun -n <num_procs> python3 run-micro-manager.py
 ```
 
 ## TBC
