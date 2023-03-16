@@ -1,6 +1,6 @@
-# Two-scale heat conduction with DuMuX and preCICE
+# Two-scale heat conduction with DuMu^x^ and preCICE
 
-This repository showcases two-scale coupling of [DuMuX](https://dumux.org/) simulations with [preCICE](https://www.precice.org/), using a two-scale coupled heat conduction problem in 2D as an example. The DuMuX simulations can also be coupled with [their respective counterparts in Nutils](https://github.com/IshaanDesai/coupled-heat-conduction).
+This repository showcases two-scale coupling of [DuMu^x^](https://dumux.org/) simulations with [preCICE](https://www.precice.org/), using a two-scale coupled heat conduction problem in 2D as an example. The DuMu^x^ simulations can also be coupled with [their respective counterparts in Nutils](https://github.com/IshaanDesai/coupled-heat-conduction).
 
 ## Setup
 
@@ -13,8 +13,8 @@ After following the steps below, your repository structure should look like this
     |-- dumux
         |-- dumux-adapter
             |--examples
-            |--macro-micro
-            ...
+               |--macro-micro
+               ...
         |-- dumux-phasefield
         |-- dune-common
         |-- dune-geometry
@@ -26,7 +26,7 @@ After following the steps below, your repository structure should look like this
 
 ## Dependencies
 
-Apart from DuMuX and preCICE, this project relies on three other software components: the [DuMuX-preCICE adapter](https://github.com/precice/dumux-adapter/), the [Micro Manager](https://github.com/precice/micro-manager) and the (currently still private) DuMuX module [dumux-phasefield](https://git.iws.uni-stuttgart.de/dumux-appl/dumux-phasefield/).
+Apart from DuMu^x^ and preCICE, this project relies on three other software components: the [DuMu^x^-preCICE adapter](https://github.com/precice/dumux-adapter/), the [Micro Manager](https://github.com/precice/micro-manager) and the (currently still private) DuMuX module [dumux-phasefield](https://git.iws.uni-stuttgart.de/dumux-appl/dumux-phasefield/).
 
 ### Micro Manager
 
@@ -44,9 +44,9 @@ cd micro-manager
 pip install --user .
 ```
 
-### DuMux
+### DuMu^x^
 
-**Version**: DuMuX 3.6, DUNE 2.8
+**Version**: DuMu^x^ 3.6, DUNE 2.8
 
 Follow the [installation instructions for DuMuX](https://dumux.org/installation/). Using the install script is recommended, but check that it contains the correct versions. This creates the following directory structure:
 
@@ -67,11 +67,11 @@ In the following, `dumux` always refers to the *outer* dumux folder.
 
 Download the [install script](https://git.iws.uni-stuttgart.de/dumux-repositories/dumux/blob/master/bin/installdumux.py) and run it with `python installdumux.py`.
 
-### DuMuX-preCICE adapter
+### DuMu^x^-preCICE adapter
 
 **Version**: precice/dumux-adapter v.1.0.0
 
-Follow the [installation instructions for the DuMuX Adapter](https://github.com/precice/dumux-adapter/).
+Follow the [installation instructions for the DuMu^x^ adapter](https://github.com/precice/dumux-adapter/).
 
 **TLDR**:
 
@@ -81,7 +81,7 @@ git clone -b v1.0.0 https://github.com/precice/dumux-adapter.git
 ./dune-common/bin/dunecontrol --only=dumux-adapter/dumux-precice all
 ```
 
-### Additional DuMux Modules
+### Additional DuMu^x^ Modules
 
 **Version**: dune-spgrid 2.6, dumux-phasefield `cell_problems` branch
 
@@ -103,7 +103,7 @@ python3 dumux/bin/installexternal.py spgrid
 ./dune-common/bin/dunecontrol bexec rm -r CMakeFiles CMakeCache.txt
 ```
 
-3. Reconfigure and build DuMuX via dunecontrol.
+3. Reconfigure and build DuMu^x^ via dunecontrol.
 
 ```bash
 ./dune-common/bin/dunecontrol --opts=./dumux/cmake.opts all
@@ -138,7 +138,7 @@ cd pybind11
 pip install --user .
 ```
 
-5. Rebuild the DuMuX-preCICE adapter.
+5. Rebuild the DuMu^x^-preCICE adapter.
 
 ```bash
 cd dumux
@@ -174,7 +174,7 @@ cd dumux/dumux-adapter/build-cmake/examples/macro-micro/macro-heat
 ./test_macro_heat
 ```
 
-2. In the other shell, run the micro simulation via 
+2. In the other shell, run the micro simulation via
 
 ```bash
 cd dumux/dumux-adapter/build-cmake/examples/macro-micro/micro-heat
@@ -185,7 +185,7 @@ To run the micro code in parallel, use `mpirun -n <NThreads> python3 run-micro-p
 
 ## Coupling with Nutils
 
-For the same problem, similar macro and micro simulations have also been [implemented in Nutils](https://github.com/IshaanDesai/coupled-heat-conduction), which can be coupled with their DuMuX counterparts. To do so:
+For the same problem, similar macro and micro simulations have also been [implemented in Nutils](https://github.com/IshaanDesai/coupled-heat-conduction), which can be coupled with their DuMu^x^ counterparts. To do so:
 
 ### Setup the Nutils macro and micro case files
 
@@ -225,7 +225,7 @@ dunecontrol --only=dumux-precice all
 
 ### Coupling the Nutils simulations
 
-You can couple the Nutils simulations with each other or with their counterpart in DuMuX, as long as one participant is the macro simulation and the other the micro simulation/micro manager. To do so, simply execute your chosen participants in separate shells.
+You can couple the Nutils simulations with each other or with their counterpart in DuMu^x^, as long as one participant is the macro simulation and the other the micro simulation/micro manager. To do so, simply execute your chosen participants in separate shells.
 
 * Run the Nutils macro simulation via
 
