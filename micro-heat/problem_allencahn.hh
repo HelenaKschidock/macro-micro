@@ -62,6 +62,10 @@ public:
         xi_ = getParam<Scalar>("Problem.xi");
         kt_ = getParam<Scalar>("Problem.kt");
         eqconc_ = getParam<Scalar>("Problem.eqconc");
+        centerX_ = (getParam<GlobalPosition>("Grid.UpperRight")[0] - getParam<GlobalPosition>("Grid.LowerLeft")[0])/2; 
+        centerY_ = (getParam<GlobalPosition>("Grid.UpperRight")[1] - getParam<GlobalPosition>("Grid.LowerLeft")[1])/2; 
+        radius_ = getParam<Scalar>("Problem.Radius");
+        factor_ = getParam<Scalar>("Problem.PhasefieldICScaling");
     }
 
     BoundaryTypes boundaryTypesAtPos(const GlobalPosition &globalPos) const
@@ -120,14 +124,10 @@ public:
     {
         PrimaryVariables values;
 
-        const static Scalar centerX = getParam<Scalar>("Grid.CenterX");
-        const static Scalar centerY = getParam<Scalar>("Grid.CenterY");
-        const static Scalar radius = getParam<Scalar>("Problem.Radius");
-        const static Scalar factor = getParam<Scalar>("Problem.PhasefieldICScaling");
-        Scalar s = std::sqrt((globalPos[0]-centerX)*(globalPos[0]-centerX)
-            +(globalPos[1]-centerY)*(globalPos[1]-centerY))
-            - radius;
-        values[phiIdx] = 1.0/(1.0 + std::exp(-factor*s/xi_));
+        Scalar s = std::sqrt((globalPos[0]-centerX_)*(globalPos[0]-centerX_)
+            +(globalPos[1]-centerY_)*(globalPos[1]-centerY_))
+            - radius_;
+        values[phiIdx] = 1.0/(1.0 + std::exp(-factor_*s/xi_));
         return values;
     }
 
@@ -162,6 +162,11 @@ private:
     Scalar eqconc_;
     std::vector<Scalar> poro_;
     Scalar conc_;
+
+    Scalar centerX_; 
+    Scalar centerY_;
+    Scalar radius_;
+    Scalar factor_;
 };
 
 } //end namespace Dumux

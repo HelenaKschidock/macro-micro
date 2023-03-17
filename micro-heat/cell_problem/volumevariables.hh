@@ -16,43 +16,21 @@
  *   You should have received a copy of the GNU General Public License       *
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.   *
  *****************************************************************************/
-// adapted from <dumux/phasefield/volumevariables.hh>
+
 #ifndef CELL_PROBLEM_VOLUME_VARIABLES_HH
 #define CELL_PROBLEM_VOLUME_VARIABLES_HH
+
+#include <dumux/phasefield/volumevariables.hh>
 
 namespace Dumux {
 
 template<class Traits>
-class CellProblemVolumeVariables
+class CellProblemVolumeVariables : public PhasefieldVolumeVariables<Traits>
 {
     using Scalar = typename Traits::PrimaryVariables::value_type;
 
 public:
     
-    using PrimaryVariables = typename Traits::PrimaryVariables;
-    
-    using Indices = typename Traits::ModelTraits::Indices;
-
-
-    template<class ElemSol, class Problem, class Element, class Scv>
-    void update(const ElemSol& elemSol,
-                const Problem& problem,
-                const Element& element,
-                const Scv& scv)
-    {
-        priVars_ = elemSol[scv.localDofIndex()];
-        extrusionFactor_ = problem.spatialParams().extrusionFactor(element, scv, elemSol); //default is 1.0
-    }
-
-    const PrimaryVariables &priVars() const
-    { return priVars_; }
-
-    Scalar priVar(const int pvIdx) const
-    { return priVars_[pvIdx]; }
-
-    Scalar extrusionFactor() const
-    { return extrusionFactor_; }
-
     template<class Problem, class Element, class Scv>
     Scalar phi0delta(const Problem& problem, 
                         const Element& element,
@@ -60,10 +38,6 @@ public:
     {
         return problem.spatialParams().phi0delta(element, scv);
     }
-
-private:
-    PrimaryVariables priVars_;
-    Scalar extrusionFactor_;
 };
 
 } // end namespace Dumux

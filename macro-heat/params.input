@@ -9,7 +9,7 @@ LiquidReferenceTemperature = 0.5 #293.15
 LiquidViscosity = 1.0
 
 [Grid]
-LowerLeft = 0 0
+LowerLeft = 0.0 0.0
 UpperRight = 1 0.5
 Cells = 3 3
 
