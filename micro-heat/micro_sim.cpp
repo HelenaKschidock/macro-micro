@@ -57,6 +57,7 @@ class MicroSimulation
     using GridManager = Dumux::GridManager<Dumux::GetPropType<AllenCahnTypeTag, Dumux::Properties::Grid>>;
     using JacobianMatrix = Dumux::GetPropType<CellProblemTypeTag, Dumux::Properties::JacobianMatrix>;
     using SolutionVector = Dumux::GetPropType<CellProblemTypeTag, Dumux::Properties::SolutionVector>;
+    using Indices = Dumux::GetPropType<CellProblemTypeTag, Dumux::Properties::ModelTraits>::Indices;
 
 public:
     MicroSimulation(int sim_id);
@@ -67,6 +68,8 @@ public:
     void reload_checkpoint();
 
 private:
+    int psi1Idx = Indices::psi1Idx;
+    int psi2Idx = Indices::psi2Idx;
     const double pi_ = 3.14159265358979323846;
     int _sim_id;
     double _k_00;
@@ -89,8 +92,7 @@ private:
     std::shared_ptr<GridGeometry> _gridGeometry;
     ACSolutionVector _phi;
     ACSolutionVector _phiOld;
-    CPSolutionVector _psi1;
-    CPSolutionVector _psi2;
+    CPSolutionVector _psi;
     GridManager _gridManager;
 
 };
@@ -164,18 +166,16 @@ void MicroSimulation::initialize()
     //setup the cell problem
     _cpProblem = std::make_shared<CPProblem>(_gridGeometry);
 
-    // the solution vectors
-    CPSolutionVector psi1(leafGridView.size(0));
-    _psi1 = psi1;
-    CPSolutionVector psi2(leafGridView.size(0));
-    _psi2 = psi2;
-
     // The jacobian matrix (`A`), the solution vector (`psi`) and the residual (`r`) make up the linear system.
     _cpLinearSolver = std::make_shared<CPLinearSolver>();
 
     // the grid variables
     _cpGridVariables = std::make_shared<CPGridVariables>(_cpProblem, _gridGeometry);
-    _cpGridVariables->init(_psi1);
+    
+    CPSolutionVector psi(_gridGeometry->numDofs());
+    _psi = psi;
+
+    _cpGridVariables->init(_psi);
 
     _cpAssembler = std::make_shared<CPAssembler>(_cpProblem, _gridGeometry, _cpGridVariables);
     
@@ -221,26 +221,16 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
     _cpProblem->spatialParams().updatePhi(_phi);
 
     //solve the cell problems 
-    std::cout << "Solve Cell Problem 1" << std::endl;
-    int psiIdx = 0;
-    _cpProblem->spatialParams().updatePsiIndex(psiIdx);
-    _cpGridVariables->update(_psi1);
+    std::cout << "Solve Cell Problems" << std::endl;
+    _cpLinearPDESolver->solve(_psi);
 
-    _cpLinearPDESolver->solve(_psi1);
-    
-    std::cout << "Solve Psi Derivative" << std::endl;
-    _cpProblem->computePsiDerivatives(*_cpProblem, *_cpAssembler, *_cpGridVariables, _psi1, psiIdx);
-    
-    std::cout << "Solve Cell Problem 2" << std::endl;
-    psiIdx = 1;
-    _cpProblem->spatialParams().updatePsiIndex(psiIdx);
-    _cpGridVariables->update(_psi2);
+    //compute the psi derivatives
+    std::cout << "Compute Psi Derivatives" << std::endl;
+    _cpProblem->spatialParams().updatePsiIndex(psi1Idx);    
+    _cpProblem->computePsiDerivatives(*_cpProblem, *_cpAssembler, *_cpGridVariables, _psi[psi1Idx], psi1Idx);
+    _cpProblem->spatialParams().updatePsiIndex(psi2Idx);   
+    _cpProblem->computePsiDerivatives(*_cpProblem, *_cpAssembler, *_cpGridVariables, _psi[psi2Idx], psi2Idx);
 
-    _cpLinearPDESolver->solve(_psi2);
-
-    std::cout << "Solve Psi Derivative" << std::endl;
-    _cpProblem->computePsiDerivatives(*_cpProblem, *_cpAssembler, *_cpGridVariables, _psi2, psiIdx);
-    
     //calculate the conductivity tensor 
     _k_00 = _cpProblem->calculateConductivityTensorComponent(0,0);
     _k_10 = _cpProblem->calculateConductivityTensorComponent(1,0);

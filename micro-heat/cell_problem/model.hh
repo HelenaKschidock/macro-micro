@@ -37,7 +37,7 @@ struct CellProblemModelTraits
 {   
     using Indices = CellProblemIndices<>;
     //! We solve for one more equation, i.e. the energy balance
-    static constexpr int numEq() { return 1; }
+    static constexpr int numEq() { return 2; }
     static constexpr int numComponents() {return 1;}
 };
 

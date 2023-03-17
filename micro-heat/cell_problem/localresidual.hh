@@ -16,8 +16,6 @@
  *   You should have received a copy of the GNU General Public License       *
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.   *
  *****************************************************************************/
-//adapted from <dumux/phasefield/localresidual.hh>
-//and <dumux/flux/cctpfa/darcyslaw.hh>
 
 #ifndef CELL_PROBLEM_LOCAL_RESIDUAL_HH
 #define CELL_PROBLEM_LOCAL_RESIDUAL_HH
@@ -25,9 +23,9 @@
 #include <dumux/common/properties.hh>
 #include <dumux/assembly/cclocalresidual.hh>
 #include <dumux/discretization/cellcentered/tpfa/computetransmissibility.hh>
-
 #include <dumux/discretization/method.hh>
 #include <dumux/discretization/extrusion.hh>
+
 #include "indices.hh"
 #include "volumevariables.hh"
 
@@ -40,7 +38,7 @@ class CellProblemLocalResidual : public CCLocalResidual<TypeTag>
     using Scalar = GetPropType<TypeTag, Properties::Scalar>;
     using Problem = GetPropType<TypeTag, Properties::Problem>;
     using NumEqVector = Dumux::NumEqVector<GetPropType<TypeTag, Properties::PrimaryVariables>>;
-    using VolumeVariables = GetPropType<TypeTag, Properties::VolumeVariables>; //or CellProblemVolume>Variables?
+    using VolumeVariables = GetPropType<TypeTag, Properties::VolumeVariables>; 
     using ElementVolumeVariables = typename GetPropType<TypeTag, Properties::GridVolumeVariables>::LocalView;
     using ElementFluxVariablesCache = typename GetPropType<TypeTag, Properties::GridFluxVariablesCache>::LocalView;
     using FVElementGeometry = typename GetPropType<TypeTag, Properties::GridGeometry>::LocalView;
@@ -53,7 +51,8 @@ class CellProblemLocalResidual : public CCLocalResidual<TypeTag>
 
     using ModelTraits = GetPropType<TypeTag, Properties::ModelTraits>;
     using Indices = typename ModelTraits::Indices;
-    static constexpr int numComponents = ModelTraits::numComponents();
+    static constexpr int numEq = ModelTraits::numEquations();
+
     using DimWorldVector = Dune::FieldVector<Scalar, GridView::dimensionworld>;
 
 public:
@@ -62,7 +61,7 @@ public:
     /*!
      * \brief Evaluate the rate of change of all conservation
      *        quantites (e.g. phase mass) within a sub-control volume.
-     *        Cell problem is static, ergo storage is zero.
+     *        Cell problem is stationary, ergo storage is zero.
      *
      * \param problem The problem
      * \param scv The sub control volume
@@ -72,15 +71,20 @@ public:
                                const SubControlVolume& scv,
                                const VolumeVariables& volVars) const
     {   
-        //storage[Indices::psi1Idx] = 0.0;
-        //storage[Indices::psi2Idx] = 0.0;
         NumEqVector storage(0.0);
-
         return storage;
     }
-
-    //from cctpfa/darcyslaw, 
-    //TODO check for periodic boundary (see dumux-phasefield)
+    
+    /*!
+     * \brief Evaluate the flux over a face of a sub control volume.
+     *
+     * \param problem The problem
+     * \param element The element
+     * \param fvGeometry The finite volume geometry context
+     * \param elemVolVars The volume variables for all flux stencil elements
+     * \param scvf The sub control volume face to compute the flux on
+     * \param elemFluxVarsCache The cache related to flux computation
+     */
     template<class Problem, class ElementVolumeVariables, class ElementFluxVarsCache>
     NumEqVector computeFlux(const Problem& problem,
                        const Element& element,
@@ -89,42 +93,45 @@ public:
                        const SubControlVolumeFace& scvf,
                        const ElementFluxVarsCache& elemFluxVarsCache) const
     {   NumEqVector flux;
-        //const auto& fluxVarsCache = elemFluxVarsCache[scvf]; 
-
+        
         int k = 0; 
-        // Get the inside and outside volume variables
-        const auto& insideScv = fvGeometry.scv(scvf.insideScvIdx());
-        const auto& outsideScv = fvGeometry.scv(scvf.outsideScvIdx());
-        const auto& insideVolVars = elemVolVars[scvf.insideScvIdx()]; //insideScv];
-        const auto& outsideVolVars = elemVolVars[scvf.outsideScvIdx()];
-
-        // Obtain inside and outside pressures
-        const auto valInside = insideVolVars.priVar(k);
-        const auto valOutside = outsideVolVars.priVar(k);
-
-        //currently without fluxVarsCache (add functions from Darcyslaw to speed up)
-        const auto& tij = calculateTransmissibility(problem, element, fvGeometry, elemVolVars, scvf);
-        
-        //unit vector in dimension k
-        DimWorldVector e_k(0.0); 
-        e_k[problem.spatialParams().getPsiIndex()] = -1.0;  //TODO +/-?
-        
-        const auto alpha_inside = vtmv(scvf.unitOuterNormal(), insideVolVars.phi0delta(problem, element, insideScv), e_k)*insideVolVars.extrusionFactor();
-
-        flux[k] = tij*(valInside - valOutside) + Extrusion::area(fvGeometry, scvf)*alpha_inside;
-
-        if (!scvf.boundary())
+        for (int k = 0; k < Indices::numIdx; k++)
         {
-            const auto& outsideScv = fvGeometry.scv(scvf.outsideScvIdx());
-            const auto outsideK = outsideVolVars.phi0delta(problem, element, outsideScv);
-            const auto outsideTi = fvGeometry.gridGeometry().isPeriodic()
-                ? computeTpfaTransmissibility(fvGeometry, fvGeometry.flipScvf(scvf.index()), outsideScv, outsideK, outsideVolVars.extrusionFactor())
-                : -1.0*computeTpfaTransmissibility(fvGeometry, scvf, outsideScv, outsideK, outsideVolVars.extrusionFactor());
-            const auto alpha_outside = vtmv(scvf.unitOuterNormal(), outsideK, e_k)*outsideVolVars.extrusionFactor();
 
-            flux[k] -= tij/outsideTi*(alpha_inside - alpha_outside);
+            // Get the inside and outside volume variables
+            const auto& insideScv = fvGeometry.scv(scvf.insideScvIdx());
+            const auto& outsideScv = fvGeometry.scv(scvf.outsideScvIdx());
+            const auto& insideVolVars = elemVolVars[scvf.insideScvIdx()]; //insideScv];
+            const auto& outsideVolVars = elemVolVars[scvf.outsideScvIdx()];
+
+            // Obtain inside and outside pressures
+            const auto valInside = insideVolVars.priVar(k);
+            const auto valOutside = outsideVolVars.priVar(k);
+
+            //currently without fluxVarsCache (add functions from Darcyslaw to speed up)
+            const auto& tij = calculateTransmissibility(problem, element, fvGeometry, elemVolVars, scvf);
+            
+            //unit vector in dimension k
+            DimWorldVector e_k(0.0); 
+            e_k[k] = -1.0;  //TODO +/-?
+            
+            const auto alpha_inside = vtmv(scvf.unitOuterNormal(), insideVolVars.phi0delta(problem, element, insideScv), e_k)*insideVolVars.extrusionFactor();
+
+            flux[k] = tij*(valInside - valOutside) + Extrusion::area(fvGeometry, scvf)*alpha_inside;
+
+            if (!scvf.boundary())
+            {
+                const auto& outsideScv = fvGeometry.scv(scvf.outsideScvIdx());
+                const auto outsideK = outsideVolVars.phi0delta(problem, element, outsideScv);
+                const auto outsideTi = fvGeometry.gridGeometry().isPeriodic()
+                    ? computeTpfaTransmissibility(fvGeometry, fvGeometry.flipScvf(scvf.index()), outsideScv, outsideK, outsideVolVars.extrusionFactor())
+                    : -1.0*computeTpfaTransmissibility(fvGeometry, scvf, outsideScv, outsideK, outsideVolVars.extrusionFactor());
+                const auto alpha_outside = vtmv(scvf.unitOuterNormal(), outsideK, e_k)*outsideVolVars.extrusionFactor();
+
+                flux[k] -= tij/outsideTi*(alpha_inside - alpha_outside);
+            }
+            //}
         }
-        //}
         return flux;
     }   
 
