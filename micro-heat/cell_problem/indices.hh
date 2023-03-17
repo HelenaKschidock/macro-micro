@@ -16,6 +16,7 @@
  *   You should have received a copy of the GNU General Public License       *
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.   *
  *****************************************************************************/
+
 #ifndef CELL_PROBLEM_INDICES_HH
 #define CELL_PROBLEM_INDICES_HH
 
@@ -24,9 +25,12 @@ namespace Dumux {
 
 template<int offset = 0>
 struct CellProblemIndices
-{   //Primary variable indices (one weight per dimension)
-    static const int psiIdx = 0;      
-    //static const int psi2Idx = 1;  
+{   //Primary variable indices
+    static const int psi1Idx = 0;   
+    static const int psi2Idx = 1;   
+    
+    //number of indices
+    static const int numIdx = 2; 
 };
 
 // \}

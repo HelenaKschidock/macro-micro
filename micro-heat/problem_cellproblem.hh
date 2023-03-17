@@ -49,12 +49,7 @@ class CellProblemProblem : public FVProblemWithSpatialParams<TypeTag>
     using DimWorldVector = Dune::FieldVector<Scalar, GridView::dimensionworld>;
     using Indices = typename GetPropType<TypeTag, Properties::ModelTraits>::Indices;
     using Vector = Dune::FieldVector<Scalar, 1>; 
-    using Extrusion = Extrusion_t<GridGeometry>;
-
-    enum {
-        psiIdx = Indices::psiIdx
-    };
-    
+    using Extrusion = Extrusion_t<GridGeometry>;    
 
 public:
     CellProblemProblem(std::shared_ptr<const GridGeometry> gridGeometry)
