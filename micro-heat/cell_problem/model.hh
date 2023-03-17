@@ -16,8 +16,7 @@
  *   You should have received a copy of the GNU General Public License       *
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.   *
  *****************************************************************************/
-// adapted from <dumux/porousmediumflow/nonisothermal/model.hh>
-// see instead: <dumux/porousmediumflow/1p/model.hh>
+
 #ifndef CELL_PROBLEM_MODEL_HH
 #define CELL_PROBLEM_MODEL_HH
 
@@ -36,7 +35,6 @@ namespace Dumux {
 struct CellProblemModelTraits 
 {   
     using Indices = CellProblemIndices<>;
-    //! We solve for one more equation, i.e. the energy balance
     static constexpr int numEq() { return 2; }
     static constexpr int numComponents() {return 1;}
 };

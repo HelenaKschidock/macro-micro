@@ -1,13 +1,12 @@
-#include <iostream>
-#include <vector>
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h> // numpy arrays
 #include <pybind11/stl.h> // std::vector conversion
-#include <numbers> // std::numbers
 
 #include <config.h>
 
 #include <ctime>
+#include <vector>
+#include <numbers> 
 #include <iostream>
 #include <fstream>
 
@@ -21,7 +20,7 @@
 #include <dumux/common/defaultusagemessage.hh>
 
 #include <dumux/linear/seqsolverbackend.hh>
-#include <dumux/linear/pdesolver.hh>        // for LinearPDESolver
+#include <dumux/linear/pdesolver.hh>        
 #include <dumux/nonlinear/newtonsolver.hh>
 
 #include <dumux/assembly/fvassembler.hh>
@@ -62,8 +61,10 @@ class MicroSimulation
 public:
     MicroSimulation(int sim_id);
     void initialize();
+
     // solve takes python dict for macro_write data, dt, and returns python dict for macro_read data
     py::dict solve(py::dict macro_write_data, double dt);
+
     void save_checkpoint();
     void reload_checkpoint();
 
@@ -78,8 +79,13 @@ private:
     double _k_11;
     double _porosity;
 
+    ACSolutionVector _phi;          //Solution of Allen Cahn Problem
+    ACSolutionVector _phiOld;       //for checkpointing
+    CPSolutionVector _psi;          //Solutions(s) of Cell Problem
+
+    //shared pointers are necessary due to partitioned nature of micro simulation
     std::shared_ptr<ACNewtonSolver> _acNonLinearSolver;
-    std::shared_ptr<LinearSolver> _linearSolver;
+    std::shared_ptr<LinearSolver> _acLinearSolver;
     std::shared_ptr<CPLinearSolver> _cpLinearSolver;
     std::shared_ptr <CPLinearPDESolver> _cpLinearPDESolver;
     std::shared_ptr<ACAssembler> _acAssembler;
@@ -90,15 +96,11 @@ private:
     std::shared_ptr<CPGridVariables> _cpGridVariables;
     std::shared_ptr<ACGridVariables> _acGridVariables;
     std::shared_ptr<GridGeometry> _gridGeometry;
-    ACSolutionVector _phi;
-    ACSolutionVector _phiOld;
-    CPSolutionVector _psi;
     GridManager _gridManager;
-
 };
 
 // Constructor
-MicroSimulation::MicroSimulation(int sim_id) : _sim_id(sim_id), _k_00(0), _k_01(0), _k_10(0),_k_11(0),_porosity(0), _phiOld(0) {};
+MicroSimulation::MicroSimulation(int sim_id) : _sim_id(sim_id), _k_00(0.0), _k_01(0.0), _k_10(0.0),_k_11(0.0),_porosity(0.0), _phiOld(0.0) {};
 
 // Initialize
 void MicroSimulation::initialize()
@@ -106,13 +108,9 @@ void MicroSimulation::initialize()
     using namespace Dumux;
 
     std::cout << "Initialize micro problem (" << _sim_id << ")\n";
-    _k_00 = 0;
-    _k_01 = 0;
-    _k_10 = 0;
-    _k_11 = 0;
 
-    // parse command line arguments and input file
-    Parameters::init("params.input");//argc, argv); TODO 
+    // parse the input file
+    Parameters::init("params.input"); 
 
     // try to create a grid (from the given grid file or the input file)
     _gridManager.init();
@@ -124,73 +122,67 @@ void MicroSimulation::initialize()
     _gridGeometry = std::make_shared<GridGeometry>(leafGridView);
     _gridGeometry->update(leafGridView);
 
-    ////////////////////////////////////////////////////////////
-    // Set up the Allen-Cahn Problem
-    ////////////////////////////////////////////////////////////
-    
-    // the allen-cahn problem (initial and boundary conditions)
-    _acProblem = std::make_shared<ACProblem>(_gridGeometry);
-
     // get some time loop parameters
     const auto tEnd = getParam<Scalar>("TimeLoop.TEnd");
     const auto maxDt = getParam<Scalar>("TimeLoop.MaxTimeStepSize");
     auto dt = getParam<Scalar>("TimeLoop.DtInitial");
 
-    // the solution vector
-    auto phiPtr = std::make_shared<ACSolutionVector>();
-    _phi = *phiPtr;
-    _acProblem->applyInitialSolution(_phi);
-    _phiOld = _phi;
-
-    // the grid variables
-    _acGridVariables = std::make_shared<ACGridVariables>(_acProblem, _gridGeometry);
-    _acGridVariables->init(_phi);
-
     // instantiate time loop
     _timeLoop = std::make_shared<CheckPointTimeLoop<Scalar>>(0.0, dt, tEnd);
     _timeLoop->setMaxTimeStepSize(maxDt);
 
-    // the assembler with time loop for instationary problem
+    ////////////////////////////////////
+    // Set up the Allen-Cahn Problem  //
+    ////////////////////////////////////
+
+    // the AC problem
+    _acProblem = std::make_shared<ACProblem>(_gridGeometry);
+
+    // the AC solution vector
+    _acProblem->applyInitialSolution(_phi);
+    _phiOld = _phi;
+
+    // the AC grid variables
+    _acGridVariables = std::make_shared<ACGridVariables>(_acProblem, _gridGeometry);
+    _acGridVariables->init(_phi);
+
+    // the AC assembler with time loop for the instationary problem
     _acAssembler = std::make_shared<ACAssembler>(_acProblem, _gridGeometry, _acGridVariables, _timeLoop, _phiOld);
 
-    // the linear solver
-    _linearSolver = std::make_shared<LinearSolver>();
-
-    // the non-linear solver
-    _acNonLinearSolver = std::make_shared<ACNewtonSolver>(_acAssembler, _linearSolver);
+    // the non-linear (Newton) solver based on the linear solver for the AC problem
+    _acLinearSolver = std::make_shared<LinearSolver>();
+    _acNonLinearSolver = std::make_shared<ACNewtonSolver>(_acAssembler, _acLinearSolver);
 
     ////////////////////////////////////////////////////////////
     // Set up the Cell Problem
     ////////////////////////////////////////////////////////////
 
-    //setup the cell problem
+    // the cell problem
     _cpProblem = std::make_shared<CPProblem>(_gridGeometry);
 
-    // The jacobian matrix (`A`), the solution vector (`psi`) and the residual (`r`) make up the linear system.
-    _cpLinearSolver = std::make_shared<CPLinearSolver>();
-
-    // the grid variables
-    _cpGridVariables = std::make_shared<CPGridVariables>(_cpProblem, _gridGeometry);
-    
+    // the CP solution vector
     CPSolutionVector psi(_gridGeometry->numDofs());
     _psi = psi;
 
+    // the CP grid variables
+    _cpGridVariables = std::make_shared<CPGridVariables>(_cpProblem, _gridGeometry);
     _cpGridVariables->init(_psi);
 
+    // the CP assembler for the stationary problem
     _cpAssembler = std::make_shared<CPAssembler>(_cpProblem, _gridGeometry, _cpGridVariables);
-    
+
+    // the CP linear solver for the CP problem
+    _cpLinearSolver = std::make_shared<CPLinearSolver>();
     _cpLinearPDESolver = std::make_shared<CPLinearPDESolver>(_cpAssembler, _cpLinearSolver);
 
-    // intialize the vtk output module
+    // start tracking time
     _timeLoop->start();
 }
 
 // Solve
 py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
 {   
-    // set leafgridView
-    // TODO: find way to set leafGridView to shared private variable (then redundant)
-    // we compute on the leaf grid view
+    // call leafgridView and point gridGeometry to it
     const auto& leafGridView = _gridManager.grid().leafGridView();
     _gridGeometry->update(leafGridView);
 
@@ -205,27 +197,25 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
     
     _timeLoop->setTimeStepSize(dt);
 
-    //read concentration from preCICE
+    // read concentration from preCICE
     double conc = macro_write_data["concentration"].cast<double>();
 
-    //input macro concentration into allen-cahn problem
+    // input macro concentration into allen-cahn problem
     _acProblem->updateConcentration(conc);
 
     // linearize & solve the allen cahn problem
     _acNonLinearSolver->solve(_phi, *_timeLoop);
 
-    //calculate porosity 
+    // calculate porosity 
     _porosity = _acProblem->calculatePorosity(_phi);
 
-    //update Phi in the cell problem
+    //u pdate Phi in the cell problem
     _cpProblem->spatialParams().updatePhi(_phi);
 
-    //solve the cell problems 
-    std::cout << "Solve Cell Problems" << std::endl;
+    // solve the cell problems 
     _cpLinearPDESolver->solve(_psi);
 
-    //compute the psi derivatives
-    std::cout << "Compute Psi Derivatives" << std::endl;
+    //compute the psi derivatives (required for conductivity tensor)
     _cpProblem->spatialParams().updatePsiIndex(psi1Idx);    
     _cpProblem->computePsiDerivatives(*_cpProblem, *_cpAssembler, *_cpGridVariables, _psi[psi1Idx], psi1Idx);
     _cpProblem->spatialParams().updatePsiIndex(psi2Idx);   
@@ -248,6 +238,9 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
     micro_write_data["porosity"] = _porosity;
     micro_write_data["grain_size"] = std::sqrt((1-_porosity)/pi_);
     
+    // write current primary variables to previous primary variables
+    _acGridVariables->advanceTimeStep();
+
     // return micro_write_data
     return micro_write_data;
 }

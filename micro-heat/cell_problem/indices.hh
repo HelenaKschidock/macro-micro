@@ -21,19 +21,17 @@
 #define CELL_PROBLEM_INDICES_HH
 
 namespace Dumux {
-// \{
 
 template<int offset = 0>
 struct CellProblemIndices
 {   //Primary variable indices
     static const int psi1Idx = 0;   
     static const int psi2Idx = 1;   
-    
+
     //number of indices
     static const int numIdx = 2; 
 };
 
-// \}
 } // end namespace
 
 #endif

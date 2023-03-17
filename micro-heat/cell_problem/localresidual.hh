@@ -51,7 +51,6 @@ class CellProblemLocalResidual : public CCLocalResidual<TypeTag>
 
     using ModelTraits = GetPropType<TypeTag, Properties::ModelTraits>;
     using Indices = typename ModelTraits::Indices;
-    static constexpr int numEq = ModelTraits::numEquations();
 
     using DimWorldVector = Dune::FieldVector<Scalar, GridView::dimensionworld>;
 
@@ -77,6 +76,11 @@ public:
     
     /*!
      * \brief Evaluate the flux over a face of a sub control volume.
+     * \note Compare dumux/flux/cctpfa/darcyslaw.hh.
+     *       This assembles the term
+     *       \f$-|\sigma| \mathbf{n}^T \phi_0^\delta \left( \nabla psi_j + e_j \right)\f$,
+     *       where \f$|\sigma|\f$ is the area of the face and \f$\mathbf{n}\f$ is the outer
+     *       normal vector. 
      *
      * \param problem The problem
      * \param element The element
@@ -94,31 +98,30 @@ public:
                        const ElementFluxVarsCache& elemFluxVarsCache) const
     {   NumEqVector flux;
         
-        int k = 0; 
         for (int k = 0; k < Indices::numIdx; k++)
         {
-
-            // Get the inside and outside volume variables
+            //! Get the inside and outside volume variables
             const auto& insideScv = fvGeometry.scv(scvf.insideScvIdx());
             const auto& outsideScv = fvGeometry.scv(scvf.outsideScvIdx());
-            const auto& insideVolVars = elemVolVars[scvf.insideScvIdx()]; //insideScv];
+            const auto& insideVolVars = elemVolVars[scvf.insideScvIdx()]; 
             const auto& outsideVolVars = elemVolVars[scvf.outsideScvIdx()];
 
-            // Obtain inside and outside pressures
+            //! Obtain inside and outside primary variables (psis)
             const auto valInside = insideVolVars.priVar(k);
             const auto valOutside = outsideVolVars.priVar(k);
 
-            //currently without fluxVarsCache (add functions from Darcyslaw to speed up)
             const auto& tij = calculateTransmissibility(problem, element, fvGeometry, elemVolVars, scvf);
             
-            //unit vector in dimension k
-            DimWorldVector e_k(0.0); 
-            e_k[k] = -1.0;  //TODO +/-?
-            
+            //! unit vector in dimension k 
+            NumEqVector e_k(0.0); 
+            e_k[k] = -1.0;  
+
+            //! compute alpha := n^T*K*g
             const auto alpha_inside = vtmv(scvf.unitOuterNormal(), insideVolVars.phi0delta(problem, element, insideScv), e_k)*insideVolVars.extrusionFactor();
 
             flux[k] = tij*(valInside - valOutside) + Extrusion::area(fvGeometry, scvf)*alpha_inside;
 
+            //! On interior faces we have to add phi0delta (K)-weighted e_k contributions
             if (!scvf.boundary())
             {
                 const auto& outsideScv = fvGeometry.scv(scvf.outsideScvIdx());
@@ -130,14 +133,12 @@ public:
 
                 flux[k] -= tij/outsideTi*(alpha_inside - alpha_outside);
             }
-            //}
         }
         return flux;
     }   
 
-    //from dumux/flux/cctpfa/darcyslaw.hh
-    // The flux variables cache has to be bound to an element prior to flux calculations
-    // During the binding, the transmissibility will be computed and stored using the method below.
+    //! The flux variables cache has to be bound to an element prior to flux calculations
+    //! During the binding, the transmissibility will be computed and stored using the method below.
     template<class Problem, class ElementVolumeVariables>
     static Scalar calculateTransmissibility(const Problem& problem,
                                             const Element& element,
@@ -163,16 +164,15 @@ public:
         else
         {
             const auto outsideScvIdx = scvf.outsideScvIdx();
-            // as we assemble fluxes from the neighbor to our element the outside index
-            // refers to the scv of our element, so we use the scv method
+            // as we assemble fluxes from the neighbor to our element 
+            // the outside index refers to the scv of our element
             const auto& outsideScv = fvGeometry.scv(outsideScvIdx);
             const auto& outsideVolVars = elemVolVars[outsideScvIdx];
             const Scalar tj = fvGeometry.gridGeometry().isPeriodic()
                 ? computeTpfaTransmissibility(fvGeometry, fvGeometry.flipScvf(scvf.index()), outsideScv, outsideVolVars.phi0delta(problem, element, outsideScv), outsideVolVars.extrusionFactor())
                 : -1.0*computeTpfaTransmissibility(fvGeometry, scvf, outsideScv, outsideVolVars.phi0delta(problem, element, outsideScv), outsideVolVars.extrusionFactor());
  
-            // harmonic mean (check for division by zero!)
-            // TODO: This could lead to problems!? Is there a better way to do this?
+            // harmonic mean
             if (ti*tj <= 0.0)
                 tij = 0.0;
             else
