@@ -16,7 +16,7 @@
  *   You should have received a copy of the GNU General Public License       *
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.   *
  *****************************************************************************/
-//adapted from dumux/examples/1ptracer/spatialparams.hh
+
 #ifndef DUMUX_CELL_PROBLEM_SPATIAL_PARAMS_HH
 #define DUMUX_CELL_PROBLEM_SPATIAL_PARAMS_HH
 
@@ -38,7 +38,7 @@ class CellProblemSpatialParams
     static constexpr int dimWorld = GridView::dimensionworld;
     using GlobalPosition = typename SubControlVolume::GlobalPosition;
 
-    using AllenCahnTypeTag = Properties::TTag::PlainAllenCahn;
+    using AllenCahnTypeTag = Properties::TTag::AllenCahn;
     using ACSolutionVector = GetPropType<AllenCahnTypeTag, Properties::SolutionVector>;
     using Vector = Dune::FieldVector<Scalar,1>;
     using PhasefieldIndices = typename GetPropType<AllenCahnTypeTag, Properties::ModelTraits>::Indices;
@@ -54,44 +54,38 @@ public:
     : ParentType(gridGeometry)
     {   
         ks_ = getParam<Scalar>("Problem.ks");
-        kg_ = getParam<Scalar>("Problem.kg");  
-        psiIndex_ = 0;
+        kg_ = getParam<Scalar>("Problem.kg"); 
     }
 
     void updatePhi(ACSolutionVector& sol){ 
         phi_ = sol[phiIdx];
     }
 
-    void updatePsiIndex(int& psiIndex){ 
-        psiIndex_ = psiIndex;
-    }
-
-    Scalar phasefield(const Element& element,
-                        const SubControlVolume& scv) const
+    Scalar phasefield(const SubControlVolume& scv) const
     {
         return phi_[scv.elementIndex()];
     }
 
-    Scalar phi0delta(const Element& element,
-                        const SubControlVolume& scv) const
+    /*!
+     * \brief Returns \f$ \Phi*k_s + (1-\Phi)*k_g\f$ for by scv.
+     */
+    Scalar phi0delta(const SubControlVolume& scv) const
     {
-        return phasefield(element, scv)*ks_ + (1-phasefield(element, scv))*kg_;
+        return phasefield(scv)*ks_ + (1-phasefield(scv))*kg_;
     }
 
-    int getPsiIndex() const
-    {
-        return psiIndex_;
-    }
-
+    /*!
+     * \brief Returns \f$ \Phi*k_s + (1-\Phi)*k_g\f$ for by elementIndex.
+     */
     Scalar phi0deltaIdx(int idx)
     {
         return ks_*phi_[idx] + kg_*(1-phi_[idx]);
     }
+    
 private:
     Dune::FieldVector<double, 1> phi_;
     Scalar ks_;
     Scalar kg_;
-    int psiIndex_;
 
 };
 } // end namespace Dumux

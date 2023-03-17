@@ -37,7 +37,7 @@ namespace py = pybind11;
 
 class MicroSimulation
 {   
-    using AllenCahnTypeTag = Dumux::Properties::TTag::PlainAllenCahn;
+    using AllenCahnTypeTag = Dumux::Properties::TTag::AllenCahn;
     using CellProblemTypeTag = Dumux::Properties::TTag::CellProblem;
     using ACSolutionVector = Dumux::GetPropType<AllenCahnTypeTag, Dumux::Properties::SolutionVector>;
     using CPSolutionVector = Dumux::GetPropType<CellProblemTypeTag, Dumux::Properties::SolutionVector>;
@@ -56,7 +56,6 @@ class MicroSimulation
     using GridManager = Dumux::GridManager<Dumux::GetPropType<AllenCahnTypeTag, Dumux::Properties::Grid>>;
     using JacobianMatrix = Dumux::GetPropType<CellProblemTypeTag, Dumux::Properties::JacobianMatrix>;
     using SolutionVector = Dumux::GetPropType<CellProblemTypeTag, Dumux::Properties::SolutionVector>;
-    using Indices = Dumux::GetPropType<CellProblemTypeTag, Dumux::Properties::ModelTraits>::Indices;
 
 public:
     MicroSimulation(int sim_id);
@@ -69,8 +68,6 @@ public:
     void reload_checkpoint();
 
 private:
-    int psi1Idx = Indices::psi1Idx;
-    int psi2Idx = Indices::psi2Idx;
     const double pi_ = 3.14159265358979323846;
     int _sim_id;
     double _k_00;
@@ -206,20 +203,19 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
     // linearize & solve the allen cahn problem
     _acNonLinearSolver->solve(_phi, *_timeLoop);
 
-    // calculate porosity 
-    _porosity = _acProblem->calculatePorosity(_phi);
-
     //u pdate Phi in the cell problem
     _cpProblem->spatialParams().updatePhi(_phi);
 
     // solve the cell problems 
     _cpLinearPDESolver->solve(_psi);
+    
+    std::cout << "Compute upscaled quantities (" << _sim_id << ")\n";
+
+    // calculate porosity 
+    _porosity = _acProblem->calculatePorosity(_phi);
 
     //compute the psi derivatives (required for conductivity tensor)
-    _cpProblem->spatialParams().updatePsiIndex(psi1Idx);    
-    _cpProblem->computePsiDerivatives(*_cpProblem, *_cpAssembler, *_cpGridVariables, _psi[psi1Idx], psi1Idx);
-    _cpProblem->spatialParams().updatePsiIndex(psi2Idx);   
-    _cpProblem->computePsiDerivatives(*_cpProblem, *_cpAssembler, *_cpGridVariables, _psi[psi2Idx], psi2Idx);
+    _cpProblem->computePsiDerivatives(*_cpProblem, *_cpAssembler, *_cpGridVariables, _psi);
 
     //calculate the conductivity tensor 
     _k_00 = _cpProblem->calculateConductivityTensorComponent(0,0);

@@ -31,12 +31,10 @@ class CellProblemVolumeVariables : public PhasefieldVolumeVariables<Traits>
 
 public:
     
-    template<class Problem, class Element, class Scv>
-    Scalar phi0delta(const Problem& problem, 
-                        const Element& element,
-                              const Scv& scv) const
+    template<class Problem, class Scv>
+    Scalar phi0delta(const Problem& problem, const Scv& scv) const
     {
-        return problem.spatialParams().phi0delta(element, scv);
+        return problem.spatialParams().phi0delta(scv);
     }
 };
 

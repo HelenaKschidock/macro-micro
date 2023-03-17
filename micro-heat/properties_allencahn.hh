@@ -16,19 +16,13 @@
  *   You should have received a copy of the GNU General Public License       *
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.   *
  *****************************************************************************/
-/*!
- * \file
- * \ingroup PhasefieldTests
- * \brief The properties of the Allen-Cahn phase-field test.
- */
-#ifndef DUMUX_PLAINALLENCAHN_PROPERTIES_HH
-#define DUMUX_PLAINALLENCAHN_PROPERTIES_HH
+
+#ifndef PROPERTIES_ALLENCAHN_HH
+#define PROPERTIES_ALLENCAHN_HH
 
 #include <dune/grid/yaspgrid.hh>
-
 #include <dumux/common/properties.hh>
 #include <dumux/discretization/cctpfa.hh>
-
 #include <dumux/phasefield/model.hh>
 
 #include "problem_allencahn.hh"
@@ -36,20 +30,20 @@
 namespace Dumux::Properties {
 
 namespace TTag {
-struct PlainAllenCahn { using InheritsFrom = std::tuple<Phasefield, CCTpfaModel>; };
+struct AllenCahn { using InheritsFrom = std::tuple<Phasefield, CCTpfaModel>; };
 }
 
 template<class TypeTag>
-struct Grid<TypeTag, TTag::PlainAllenCahn> { using type = Dune::SPGrid<double, 2>; };
+struct Grid<TypeTag, TTag::AllenCahn> { using type = Dune::SPGrid<double, 2>; };
 
 template<class TypeTag>
-struct Problem<TypeTag, TTag::PlainAllenCahn> { using type = PlainAllenCahnProblem<TypeTag>; };
+struct Problem<TypeTag, TTag::AllenCahn> { using type = AllenCahnProblem<TypeTag>; };
 
 template<class TypeTag>
-struct EnableGridVolumeVariablesCache<TypeTag, TTag::PlainAllenCahn> { static constexpr bool value = true; };
+struct EnableGridVolumeVariablesCache<TypeTag, TTag::AllenCahn> { static constexpr bool value = true; };
 
 template<class TypeTag>
-struct EnableGridGeometryCache<TypeTag, TTag::PlainAllenCahn> { static constexpr bool value = true; };
+struct EnableGridGeometryCache<TypeTag, TTag::AllenCahn> { static constexpr bool value = true; };
 
 } // end namespace Dumux::Properties
 
