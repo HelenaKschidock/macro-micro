@@ -2,7 +2,7 @@
 Multithreading = false
 
 [TimeLoop]
-TEnd = 1                # end time of the simulation
+TEnd = 0.25             # end time of the simulation
 DtInitial = 0.001       # initial time step size
 MaxTimeStepSize = 0.001 # maximal time step size
 
