@@ -117,7 +117,7 @@ public:
             e_k[k] = -1.0;  
 
             //! compute alpha := n^T*K*g
-            const auto alpha_inside = vtmv(scvf.unitOuterNormal(), insideVolVars.phi0delta(problem, element, insideScv), e_k)*insideVolVars.extrusionFactor();
+            const auto alpha_inside = vtmv(scvf.unitOuterNormal(), insideVolVars.phi0delta(problem, insideScv), e_k)*insideVolVars.extrusionFactor();
 
             flux[k] = tij*(valInside - valOutside) + Extrusion::area(fvGeometry, scvf)*alpha_inside;
 
@@ -125,7 +125,7 @@ public:
             if (!scvf.boundary())
             {
                 const auto& outsideScv = fvGeometry.scv(scvf.outsideScvIdx());
-                const auto outsideK = outsideVolVars.phi0delta(problem, element, outsideScv);
+                const auto outsideK = outsideVolVars.phi0delta(problem, outsideScv);
                 const auto outsideTi = fvGeometry.gridGeometry().isPeriodic()
                     ? computeTpfaTransmissibility(fvGeometry, fvGeometry.flipScvf(scvf.index()), outsideScv, outsideK, outsideVolVars.extrusionFactor())
                     : -1.0*computeTpfaTransmissibility(fvGeometry, scvf, outsideScv, outsideK, outsideVolVars.extrusionFactor());
@@ -153,7 +153,7 @@ public:
         const auto& insideVolVars = elemVolVars[insideScvIdx];
 
         const Scalar ti = computeTpfaTransmissibility(fvGeometry, scvf, insideScv, 
-                                                      insideVolVars.phi0delta(problem, element, insideScv), 
+                                                      insideVolVars.phi0delta(problem, insideScv), 
                                                       insideVolVars.extrusionFactor());
  
         // on the boundary (dirichlet) we only need ti
@@ -169,8 +169,8 @@ public:
             const auto& outsideScv = fvGeometry.scv(outsideScvIdx);
             const auto& outsideVolVars = elemVolVars[outsideScvIdx];
             const Scalar tj = fvGeometry.gridGeometry().isPeriodic()
-                ? computeTpfaTransmissibility(fvGeometry, fvGeometry.flipScvf(scvf.index()), outsideScv, outsideVolVars.phi0delta(problem, element, outsideScv), outsideVolVars.extrusionFactor())
-                : -1.0*computeTpfaTransmissibility(fvGeometry, scvf, outsideScv, outsideVolVars.phi0delta(problem, element, outsideScv), outsideVolVars.extrusionFactor());
+                ? computeTpfaTransmissibility(fvGeometry, fvGeometry.flipScvf(scvf.index()), outsideScv, outsideVolVars.phi0delta(problem, outsideScv), outsideVolVars.extrusionFactor())
+                : -1.0*computeTpfaTransmissibility(fvGeometry, scvf, outsideScv, outsideVolVars.phi0delta(problem, outsideScv), outsideVolVars.extrusionFactor());
  
             // harmonic mean
             if (ti*tj <= 0.0)

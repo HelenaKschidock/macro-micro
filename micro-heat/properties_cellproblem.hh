@@ -36,7 +36,7 @@ struct CellProblem { using InheritsFrom = std::tuple<CellModel, CCTpfaModel>; };
 }
 
 template<class TypeTag>
-struct Grid<TypeTag, TTag::CellProblem> { using type = Dune::SPGrid<double, 2>;}; //Dune::YaspGrid<2>; };
+struct Grid<TypeTag, TTag::CellProblem> { using type = Dune::SPGrid<double, 2>;}; 
 
 template<class TypeTag>
 struct Problem<TypeTag, TTag::CellProblem> { using type = CellProblemProblem<TypeTag>; };

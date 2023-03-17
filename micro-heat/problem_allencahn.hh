@@ -16,8 +16,9 @@
  *   You should have received a copy of the GNU General Public License       *
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.   *
  *****************************************************************************/
-#ifndef DUMUX_PLAINALLENCAHN_PROBLEM_HH
-#define DUMUX_PLAINALLENCAHN_PROBLEM_HH
+
+#ifndef DUMUX_ALLENCAHN_PROBLEM_HH
+#define DUMUX_ALLENCAHN_PROBLEM_HH
 
 #include <dumux/common/fvproblemwithspatialparams.hh>
 #include <dumux/common/timeloop.hh>
@@ -29,7 +30,7 @@
 namespace Dumux {
 
 template <class TypeTag >
-class PlainAllenCahnProblem : public FVProblemWithSpatialParams<TypeTag>
+class AllenCahnProblem : public FVProblemWithSpatialParams<TypeTag>
 {
     using ParentType = FVProblemWithSpatialParams<TypeTag>;
     using GridView = typename GetPropType<TypeTag, Properties::GridGeometry>::GridView;
@@ -44,9 +45,6 @@ class PlainAllenCahnProblem : public FVProblemWithSpatialParams<TypeTag>
     using FVElementGeometry = typename GetPropType<TypeTag, Properties::GridGeometry>::LocalView;
     using SubControlVolume = typename FVElementGeometry::SubControlVolume;
     using SolutionVector = GetPropType<TypeTag, Properties::SolutionVector>;
-    using TimeLoopPtr = std::shared_ptr<CheckPointTimeLoop<Scalar>>;
-    using Matrix = Dune::FieldMatrix<Scalar,3,3>;
-    using Vector = Dune::FieldVector<Scalar,3>;
 
     static constexpr int phiIdx = Indices::phiIdx;
 
@@ -54,7 +52,7 @@ class PlainAllenCahnProblem : public FVProblemWithSpatialParams<TypeTag>
     using GlobalPosition = typename Element::Geometry::GlobalCoordinate;
 
 public:
-    PlainAllenCahnProblem(std::shared_ptr<const FVGridGeometry> fvGridGeometry)
+    AllenCahnProblem(std::shared_ptr<const FVGridGeometry> fvGridGeometry)
     : ParentType(fvGridGeometry)
     {   
         omega_ = getParam<Scalar>("Problem.omega");
@@ -78,21 +76,23 @@ public:
     }
 
     /*!
-     * \brief Calculates the derivative of the double-well potential P = 8 \phi^2 (1-\phi)^2.
+     * \brief Calculates the derivative P' of the double-well potential \f$ P = 8 \phi^2 (1-\phi)^2\f$.
      */
     Scalar pPrime(Scalar phi) const
     {
         return 16.0 * phi * (1.0 - phi) * (1.0 - 2.0*phi);
     }
 
+    /*!
+     * \brief The source term is calculated as \f$ -\omega *P'(Phi) - 4*xi_ * Phi * (1-Phi)*F(T)\f$.
+     */
     NumEqVector source(const Element &element,
                        const FVElementGeometry& fvGeometry,
                        const ElementVolumeVariables& elemVolVars,
                        const SubControlVolume &scv) const
     {
-        // declare source vector
         NumEqVector source;
-        // extract priVars
+
         const auto& priVars = elemVolVars[scv].priVars();
 
         source[phiIdx] = -omega_ * pPrime(priVars[phiIdx]);
@@ -100,12 +100,16 @@ public:
         return source;
     }
 
+    /*!
+     * \brief Set the macro temperature/concentration
+     */
     void updateConcentration(Scalar conc)
     {
         conc_ = conc;
     }
+
     /*!
-     * \brief Returns the interfaceVelocity to use in the source term (F(T))
+     * \brief Returns the interfaceVelocity to use in the source term (-F(T))
      */
     Scalar reactionRate() const
     {   
@@ -113,20 +117,25 @@ public:
     }
 
     /*!
-     * \brief Returns the macro temperature/concentration (TODO)
+     * \brief Returns the macro temperature/concentration
      */
     Scalar concentration() const
     {
         return conc_;
     }
 
+    /*!
+     * \brief Returns the initial analytic value of the phasefield
+     * \note \f$ 1/(1+\exp(-4\lambda \sqrt{(y-y_0)² + (x-x_0)²}-R_0 )) \f$,
+     *       where \f$|(x_0,y_0|\f$ is cell center 
+     *       and \f$ R_0\f$ is the initial radius of the grain.
+     */
     PrimaryVariables initialAtPos(const GlobalPosition &globalPos) const
     {
         PrimaryVariables values;
 
         Scalar s = std::sqrt((globalPos[0]-centerX_)*(globalPos[0]-centerX_)
-            +(globalPos[1]-centerY_)*(globalPos[1]-centerY_))
-            - radius_;
+            +(globalPos[1]-centerY_)*(globalPos[1]-centerY_))- radius_;
         values[phiIdx] = 1.0/(1.0 + std::exp(-factor_*s/xi_));
         return values;
     }
@@ -141,17 +150,13 @@ public:
         return omega_;
     }
 
-    Scalar calculatePorosity(SolutionVector &sol) const //todo check
+    /*!
+     * \brief Calculates the upscaled porosity by integrating phi
+     */
+    Scalar calculatePorosity(SolutionVector &sol) const 
     {   
         std::size_t order = 2; 
         return integrateGridFunction(this->gridGeometry(), sol, order);
-    }
-
-    //to make available to vtkOutput, porosity has to be converted to a Field
-    const std::vector<Scalar>& getPorosityAsField(SolutionVector &sol)
-    {   std::vector<Scalar> poro(sol.size(), calculatePorosity(sol));
-        poro_ = poro; 
-        return poro_; 
     }
 
 private:
@@ -171,4 +176,4 @@ private:
 
 } //end namespace Dumux
 
-#endif // DUMUX_PLAINALLENCAHN_PROBLEM_HH
+#endif 
