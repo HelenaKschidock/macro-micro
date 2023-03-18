@@ -9,11 +9,11 @@ MaxTimeStepSize = 0.01      # maximal time step size
 [Grid]
 LowerLeft = 0.0 0.0         # lower left (front) corner of the domain (keep this fixed at 0 0!)
 UpperRight = 1.0 1.0        # upper right (back) corner of the domain
-Cells = 200 200             # grid resolution in each coordinate direction
+Cells = 80 80               # grid resolution in each coordinate direction
 Periodic = 1 1              # Periodic Boundary conditions in both dimensions
 
 [Problem]
-xi = 0.02                   # phasefield parameter (lambda, set to 4/Ncells)
+xi = 0.04                   # phasefield parameter (lambda, set to around 4/Ncells) 
 omega = 0.05                # phasefield diffusivity/surface tension parameter (gamma)
 kt = 1.0                    # constant deciding speed of expansion/contraction
 eqconc = 0.5                # equilibrium concentration 
