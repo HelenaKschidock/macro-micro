@@ -56,8 +56,7 @@ template<class IsothermalTraits, class Impl>
 class MyEnergyVolumeVariablesImplementation<IsothermalTraits, Impl, false>
 {
     using Scalar = typename IsothermalTraits::PrimaryVariables::value_type;
-    //from https://dumux.org/docs/doxygen/releases/3.5/a00575_source.html
-    static constexpr int dimWorld = 2; //TODO hardcoded for now
+    static constexpr int dimWorld = 2; // hardcoded for now
     using DimWorldMatrix = Dune::FieldMatrix<Scalar, dimWorld, dimWorld>;
 public:
     using FluidState = typename IsothermalTraits::FluidState;
@@ -115,7 +114,7 @@ template<class Traits, class Impl>
 class MyEnergyVolumeVariablesImplementation<Traits, Impl, true>
 {
     using Scalar = typename Traits::PrimaryVariables::value_type;
-    static constexpr int dimWorld = 2; //TODO hardcoded for now
+    static constexpr int dimWorld = 2; //hardcoded for now
     using DimWorldMatrix = Dune::FieldMatrix<Scalar, dimWorld, dimWorld>;
     using Idx = typename Traits::ModelTraits::Indices;
     using ParentType = PorousMediumFlowVolumeVariables<Traits>;
@@ -413,12 +412,10 @@ private:
     {   static_assert(Detail::isInertSolidPhase<SolidSystem>::value,
             "solidThermalConductivity can only be overwritten in the spatial params when the solid system is a simple InertSolidPhase\n"
             "If you select a proper solid system, the solid thermal conductivity will be computed as stated in the solid system!");
-        //std::cout << "Conductivity tensor:\n" << problem.spatialParams().solidThermalConductivity(element, scv) << std::endl;
         return problem.spatialParams().solidThermalConductivity(element, scv);
     }
 
     DimWorldMatrix lambdaEff_;
-    // \}
 
 };
 

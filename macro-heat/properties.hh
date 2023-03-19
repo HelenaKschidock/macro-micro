@@ -16,29 +16,19 @@
  *   You should have received a copy of the GNU General Public License       *
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.   *
  *****************************************************************************/
-/**
- * \file
- * \ingroup OnePTests
- * \brief Test for the OnePModel in combination with the NI model for a conduction problem.
- *
- * The simulation domain is a tube with an elevated temperature on the left hand side.
- */
 
 #ifndef DUMUX_1PNI_CONDUCTION_PROBLEM_PROPERTIES_HH
 #define DUMUX_1PNI_CONDUCTION_PROBLEM_PROPERTIES_HH
 
 #include <cmath>
 #include <dune/grid/yaspgrid.hh>
-
 #include <dumux/discretization/elementsolution.hh>
 #include <dumux/discretization/cctpfa.hh>
-
 #include <dumux/porousmediumflow/1p/model.hh>
-
 #include <dumux/material/fluidsystems/1pliquid.hh>
-#include "mysimpleliquid.hh"
 #include <dumux/material/fluidmatrixinteractions/1p/thermalconductivityaverage.hh>
 
+#include "mysimpleliquid.hh"
 #include "problem.hh"
 #include "spatialparams.hh"
 #include "myvolumevariables.hh"
@@ -55,7 +45,7 @@ template<class TypeTag>
 struct Grid<TypeTag, TTag::OnePNIConduction> { using type = Dune::YaspGrid<2>; }; //structured parallel 2D grid
 // Set the problem property
 template<class TypeTag>
-struct Problem<TypeTag, TTag::OnePNIConduction> { using type = OnePNIConductionProblem<TypeTag>; }; // used to be 
+struct Problem<TypeTag, TTag::OnePNIConduction> { using type = OnePNIConductionProblem<TypeTag>; }; 
 
 // Set the fluid system
 template<class TypeTag>
@@ -78,7 +68,7 @@ private:
     using PT = typename GetPropType<TypeTag, Properties::SpatialParams>::PermeabilityType;
     using MT = GetPropType<TypeTag, Properties::ModelTraits>;
 
-    using Traits = OnePVolumeVariablesTraits<PV, FSY, FST, SSY, SST, PT, MT>; //TODO?
+    using Traits = OnePVolumeVariablesTraits<PV, FSY, FST, SSY, SST, PT, MT>; 
 public:
     using type = MyOnePVolumeVariables<Traits>;
 };

@@ -52,7 +52,7 @@ class MyOnePVolumeVariables
     using Scalar = typename Traits::PrimaryVariables::value_type;
     using PermeabilityType = typename Traits::PermeabilityType;
     static constexpr int numFluidComps = ParentType::numFluidComponents();
-    static constexpr int dimWorld = 2; //TODO hardcoded for now
+    static constexpr int dimWorld = 2; //hardcoded for now
     using DimWorldMatrix = Dune::FieldMatrix<Scalar, dimWorld, dimWorld>;
 public:
     //! Export the underlying fluid system
@@ -220,6 +220,6 @@ protected:
     PermeabilityType permeability_;
 };
 
-} // end namespace Dumux
+} 
 
 #endif

@@ -16,14 +16,12 @@
  *   You should have received a copy of the GNU General Public License       *
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.   *
  *****************************************************************************/
+
 #ifndef DUMUX_SIMPLE_H2O_HH
 #define DUMUX_SIMPLE_H2O_HH
  
-#include <dumux/common/parameters.hh>
-#include <dumux/material/idealgas.hh>
- 
+#include <dumux/common/parameters.hh> 
 #include <cmath>
- 
 #include <dumux/material/components/base.hh>
 #include <dumux/material/components/liquid.hh>
  
@@ -35,7 +33,6 @@ class MySimpleLiquid
 , public Components::Liquid<Scalar, MySimpleLiquid<Scalar> >
 , public Components::Gas<Scalar, MySimpleLiquid<Scalar> >
 {
-    using IdealGas = Dumux::IdealGas<Scalar>;
  
 public:
     static std::string name()
@@ -76,7 +73,7 @@ public:
     }
  
     static Scalar liquidThermalConductivity(Scalar temperature, Scalar pressure)
-    {  //never called
+    {  //never called, our conductivity tensor is used instead
        return getParam<Scalar>("Component.LiquidThermalConductivity");
     }
 };
