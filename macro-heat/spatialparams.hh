@@ -16,11 +16,6 @@
  *   You should have received a copy of the GNU General Public License       *
  *   along with this program.  If not, see <http://www.gnu.org/licenses/>.   *
  *****************************************************************************/
-/*!
- * \file
- * \ingroup OnePTests
- * \brief Definition of the spatial parameters for the 1pni problems.
- */
 
 #ifndef DUMUX_TEST_1PNI_SPATIAL_PARAMS_HH
 #define DUMUX_TEST_1PNI_SPATIAL_PARAMS_HH
@@ -33,7 +28,6 @@
 namespace Dumux {
 
 /*!
- * \ingroup OnePTests
  * \brief Definition of the spatial parameters for the 1pni problems.
  */
 template<class GridGeometry, class Scalar>
@@ -44,12 +38,10 @@ class OnePNISpatialParams
     using GridView = typename GridGeometry::GridView;
     using ThisType = OnePNISpatialParams<GridGeometry, Scalar>;
     using ParentType = FVPorousMediumFlowSpatialParamsOneP<GridGeometry, Scalar, ThisType>;
-
     static const int dimWorld = GridView::dimensionworld;
     using DimWorldMatrix = Dune::FieldMatrix<Scalar, dimWorld, dimWorld>;
     using Element = typename GridView::template Codim<0>::Entity;
     using GlobalPosition = typename Element::Geometry::GlobalCoordinate;
-
     using FVElementGeometry = typename GridGeometry::LocalView;
     using SubControlVolume = typename FVElementGeometry::SubControlVolume;
 
@@ -75,29 +67,33 @@ public:
      *
      * \param globalPos The global position
      */
-    
     template<class ElementSolution>
     Scalar porosity(const Element& element, 
                     const SubControlVolume& scv, 
                     const ElementSolution& elemSol) const
-    {   if (getParam<bool>("Precice.RunWithCoupling") == true){
+    {   
+        if (getParam<bool>("Precice.RunWithCoupling") == true)
             return couplingInterface_.getScalarQuantityOnFace(porosityId_,scv.elementIndex());
-        }
-        else{
+        else
             return getParam<Scalar>("Problem.DefaultPorosity"); 
-        }
     } 
+
+    /*!
+     * \brief Defines the conductivity tensor \f$ K \f$.
+     */
 
     DimWorldMatrix solidThermalConductivity(const Element &element,
                                     const SubControlVolume& scv) const
     {   DimWorldMatrix K;
-        if (getParam<bool>("Precice.RunWithCoupling") == true){
+        if (getParam<bool>("Precice.RunWithCoupling") == true)
+        {   
             K[0][0] = couplingInterface_.getScalarQuantityOnFace(k00Id_,scv.elementIndex());
             K[0][1] = couplingInterface_.getScalarQuantityOnFace(k01Id_,scv.elementIndex());
             K[1][0] = couplingInterface_.getScalarQuantityOnFace(k10Id_,scv.elementIndex());
             K[1][1] = couplingInterface_.getScalarQuantityOnFace(k11Id_,scv.elementIndex());
         } 
-        else{ 
+        else
+        { 
             K[0][0] = getParam<Scalar>("Component.SolidThermalConductivity");
             K[0][1] = 0.0;
             K[1][0] = 0.0;
@@ -107,23 +103,21 @@ public:
     }
 
     void updatePreciceDataIds() 
-    {   //TODO currently only changes the values within this function, they revert back to init value! 
+    {   
         porosityId_ = couplingInterface_.getIdFromName("porosity");
         k00Id_ = couplingInterface_.getIdFromName("k_00");
         k01Id_ = couplingInterface_.getIdFromName("k_01");
         k10Id_ = couplingInterface_.getIdFromName("k_10");
         k11Id_ = couplingInterface_.getIdFromName("k_11");
-        dataIdsSet = true;
     }
 
 private:
     Dumux::Precice::CouplingAdapter &couplingInterface_;
-    size_t porosityId_ = 4; 
-    size_t k00Id_ = 0; 
-    size_t k01Id_ = 1;
-    size_t k10Id_ = 2;
-    size_t k11Id_ = 3;
-    bool dataIdsSet = false;
+    int porosityId_; 
+    int k00Id_; 
+    int k01Id_; 
+    int k10Id_; 
+    int k11Id_; 
 };
 
 } // end namespace Dumux
