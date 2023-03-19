@@ -1,23 +1,23 @@
 [Component]
-SolidDensity = 1.0 #rho_s 
-SolidThermalConductivity = 1.0 #k_s
+SolidDensity = 1.0 
+SolidThermalConductivity = 1.0 
 SolidHeatCapacity = 1.0
-LiquidDensity = 1.0 ##
+LiquidDensity = 1.0 
 LiquidThermalConductiviy = 1.0 #not used, conductivity tensor K communicated
-LiquidHeatCapacity = 1.0 ##
-LiquidReferenceTemperature = 0.5 #293.15
+LiquidHeatCapacity = 1.0
+LiquidReferenceTemperature = 0.5
 LiquidViscosity = 1.0
 
 [Grid]
-LowerLeft = 0.0 0.0
+LowerLeft = 0.0 0.0 #not used! 
 UpperRight = 1 0.5
-Cells = 3 3
+Cells = 10 5
 
 [TimeLoop]
 TEnd = 0.25 
 OutputInterval = 1 # output after every n timesteps 
-MaxDt = 0.01 
-InitialDt = 0.01
+MaxDt = 0.001 
+InitialDt = 0.001
 
 [Problem]
 Name = macro-heat
@@ -40,7 +40,6 @@ HeatSourceBottomLeft = 0.0
 [InitialConditions]
 Temperature = 0.5
 Pressure = 0.0
-
 
 [Precice]
 RunWithCoupling = true
