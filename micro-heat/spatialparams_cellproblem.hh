@@ -55,10 +55,18 @@ public:
     {   
         ks_ = getParam<Scalar>("Problem.ks");
         kg_ = getParam<Scalar>("Problem.kg"); 
+        numDofs_ = gridGeometry->numDofs();
+        phi_.resize(gridGeometry->numDofs());
+        updatePhiCalled_ = false;
     }
 
-    void updatePhi(ACSolutionVector& sol){ 
-        phi_ = sol[phiIdx];
+    void updatePhi(ACSolutionVector& sol)
+    {   
+        for (int i = 0; i < numDofs_; i++)
+        {   
+            phi_[i] = sol[i];
+        }
+        updatePhiCalled_ = true;
     }
 
     Scalar phasefield(const SubControlVolume& scv) const
@@ -78,14 +86,16 @@ public:
      * \brief Returns \f$ \Phi*k_s + (1-\Phi)*k_g\f$ for by elementIndex.
      */
     Scalar phi0deltaIdx(int idx)
-    {
+    {   
         return ks_*phi_[idx] + kg_*(1-phi_[idx]);
     }
     
 private:
-    Dune::FieldVector<double, 1> phi_;
+    std::vector<Scalar> phi_; 
     Scalar ks_;
     Scalar kg_;
+    Scalar numDofs_;
+    bool updatePhiCalled_;
 
 };
 } // end namespace Dumux
