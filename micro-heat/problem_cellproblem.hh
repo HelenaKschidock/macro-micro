@@ -39,13 +39,16 @@ class CellProblemProblem : public FVProblemWithSpatialParams<TypeTag>
     using Scalar = GetPropType<TypeTag, Properties::Scalar>;
     using PrimaryVariables = GetPropType<TypeTag, Properties::PrimaryVariables>;
     using FVElementGeometry = typename GetPropType<TypeTag, Properties::GridGeometry>::LocalView;
+    using SubControlVolume = typename FVElementGeometry::SubControlVolume;
     using SubControlVolumeFace = typename FVElementGeometry::SubControlVolumeFace;
     using GridGeometry = GetPropType<TypeTag, Properties::GridGeometry>;
     using BoundaryTypes = Dumux::BoundaryTypes<PrimaryVariables::size()>;
     using SolutionVector = GetPropType<TypeTag, Properties::SolutionVector>;
     using DimWorldVector = Dune::FieldVector<Scalar, GridView::dimensionworld>;
-    using Indices = typename GetPropType<TypeTag, Properties::ModelTraits>::Indices;
     using Extrusion = Extrusion_t<GridGeometry>;    
+    using ModelTraits = GetPropType<TypeTag, Properties::ModelTraits>;
+    using Indices = typename GetPropType<TypeTag, Properties::ModelTraits>::Indices;
+    static constexpr auto numEq = ModelTraits::numEq();
 
 public:
     CellProblemProblem(std::shared_ptr<const GridGeometry> gridGeometry)
@@ -71,6 +74,42 @@ public:
 
         return bcTypes;
     }
+
+    //! Enable internal Dirichlet constraints
+    static constexpr bool enableInternalDirichletConstraints()
+    { return true; }
+
+    /*!
+     * \brief Tag a degree of freedom to carry internal Dirichlet constraints.
+     *        If true is returned for a dof, the equation for this dof is replaced
+     *        by the constraint that its primary variable values must match the
+     *        user-defined values obtained from the function internalDirichlet(),
+     *        which must be defined in the problem.
+     *
+     * \param element The finite element
+     * \param scv The sub-control volume
+     */
+    std::bitset<numEq> hasInternalDirichletConstraint(const Element& element,
+                                                      const SubControlVolume& scv) const
+    {
+        // the pure Neumann problem is only defined up to a constant
+        // we create a well-posed problem by fixing the pressure at one dof in the middle of the domain
+        std::bitset<numEq> values;
+        if (scv.dofIndex() == static_cast<std::size_t>(this->gridGeometry().numDofs()-1))
+            {
+            values.set(Indices::psi1Idx);
+            values.set(Indices::psi2Idx);
+            }
+        return values;
+    }
+
+    /*!
+     * \brief Define the values of internal Dirichlet constraints for a degree of freedom.
+     * \param element The finite element
+     * \param scv The sub-control volume
+     */
+    PrimaryVariables internalDirichlet(const Element& element, const SubControlVolume& scv) const
+    { return PrimaryVariables(1.0); }
 
     /*!
      * \brief Calculates the upscaled conductivity tensor components by integrating 
@@ -103,7 +142,6 @@ public:
         { 
             d_[elemIdx] = this->spatialParams().phi0deltaIdx(elemIdx)*(delta_ij_[elemIdx] + dPsi_[elemIdx]);
         }
-
         return d_;
     }
 
@@ -190,7 +228,7 @@ public:
                         scvVolume = insideScv.volume(); 
                     }
                 }
-
+               
                 if (scvVolume > 0.0)
                     cellDeriv /= scvVolume;
 
