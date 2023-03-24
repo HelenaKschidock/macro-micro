@@ -48,7 +48,7 @@ class MicroSimulation
     using ACAssembler = Dumux::FVAssembler<AllenCahnTypeTag, Dumux::DiffMethod::numeric>;
     using CPAssembler = Dumux::FVAssembler<CellProblemTypeTag, Dumux::DiffMethod::numeric>; 
     using LinearSolver = Dumux::UMFPackBackend;
-    using CPLinearSolver = Dumux::ILUnBiCGSTABBackend;
+    using CPLinearSolver = Dumux::UMFPackBackend;
     using CPLinearPDESolver = Dumux::LinearPDESolver<CPAssembler, CPLinearSolver>;
     using ACNewtonSolver = Dumux::NewtonSolver<ACAssembler, LinearSolver>;
     using GridGeometry = Dumux::GetPropType<AllenCahnTypeTag, Dumux::Properties::GridGeometry>;   
