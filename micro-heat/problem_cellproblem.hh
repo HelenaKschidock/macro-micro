@@ -175,8 +175,6 @@ public:
         
         const auto gridVolVars = assembler.gridVariables().curGridVolVars();
         auto elemVolVars = localView(gridVolVars);
-       
-        DimWorldVector cellDeriv(0.0); 
 
         for (const auto &element : elements(gridGeometry.gridView())) {
             
@@ -185,6 +183,7 @@ public:
             
             for (int k = 0; k < Indices::numIdx; k++ ){
 
+                DimWorldVector cellDeriv(0.0); 
                 Scalar scvVolume(0.0);
 
                 for (const auto &scvf : scvfs(fvGeometry)) {
@@ -231,7 +230,6 @@ public:
                
                 if (scvVolume > 0.0)
                     cellDeriv /= scvVolume;
-
                 const int eIdxGlobal = gridGeometry.elementMapper().index(element);
 
                 if (k == 0)
