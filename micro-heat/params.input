@@ -3,8 +3,8 @@ Multithreading = false
 
 [TimeLoop]
 TEnd = 0.25                 # end time of the simulation
-DtInitial = 0.001           # initial time step size
-MaxTimeStepSize = 0.001     # maximal time step size
+DtInitial = 0.01            # initial time step size
+MaxTimeStepSize = 0.01      # maximal time step size
 
 [Grid]
 LowerLeft = 0.0 0.0         # lower left (front) corner of the domain (keep this fixed at 0 0!)
