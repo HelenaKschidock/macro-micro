@@ -16,8 +16,8 @@ Cells = 10 5
 [TimeLoop]
 TEnd = 0.25 
 OutputInterval = 1 # output after every n timesteps 
-MaxDt = 0.001 
-InitialDt = 0.001
+MaxDt = 0.01 
+InitialDt = 0.01
 
 [Problem]
 Name = macro-heat
