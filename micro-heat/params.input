@@ -22,3 +22,4 @@ kg = 0.0                    # conductivity of void material
 Name = cell_phase           # base name for VTK output files
 Radius = 0.4                # initial radius of the grain
 PhasefieldICScaling = 4.0   # factor in initial phasefield function
+MaxPorosity = 0.9686        # porosity cap
