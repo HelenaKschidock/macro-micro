@@ -17,7 +17,6 @@
       "adaptivity_every_implicit_iteration": "False"
     },
     "diagnostics": {
-      "data_from_micro_sims": {"grain_size": "scalar"},
-      "output_micro_sim_solve_time": "True"
+      "data_from_micro_sims": {"grain_size": "scalar"}
     }
-  }
+}
