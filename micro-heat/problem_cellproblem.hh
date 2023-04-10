@@ -197,8 +197,7 @@ public:
                         const auto valInside = insideVolVars.priVar(k);
                         
                         const Scalar ti = computeTpfaTransmissibility(fvGeometry, scvf, insideScv, 
-                                                        insideVolVars.phi0delta(problem, insideScv), 
-                                                        insideVolVars.extrusionFactor());
+                                                        1.0, insideVolVars.extrusionFactor());
 
                         // faces might lie on the periodic boundary, requiring the matching scvf of the scv
                         // on the other side of the periodic boundary.
@@ -217,7 +216,7 @@ public:
                                 const auto& outsideVolVars = outsideElemVolVars[outsideScvf.insideScvIdx()]; 
                                 
                                 valOutside = outsideVolVars.priVar(k);
-                                const Scalar tj = computeTpfaTransmissibility(fvGeometry, outsideScvf, outsideScv, outsideVolVars.phi0delta(problem, outsideScv), outsideVolVars.extrusionFactor());
+                                const Scalar tj = computeTpfaTransmissibility(fvGeometry, outsideScvf, outsideScv, 1.0, outsideVolVars.extrusionFactor());
                                 tij = scvf.area()*(tj)/(ti + tj);
                                 break;
                             }
