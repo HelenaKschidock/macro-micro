@@ -64,6 +64,7 @@ public:
         centerY_ = (getParam<GlobalPosition>("Grid.UpperRight")[1] - getParam<GlobalPosition>("Grid.LowerLeft")[1])/2; 
         radius_ = getParam<Scalar>("Problem.Radius");
         factor_ = getParam<Scalar>("Problem.PhasefieldICScaling");
+        maxPoro_ = getParam<Scalar>("Problem.MaxPorosity");
     }
 
     BoundaryTypes boundaryTypesAtPos(const GlobalPosition &globalPos) const
@@ -156,7 +157,11 @@ public:
     Scalar calculatePorosity(SolutionVector &sol) const 
     {   
         std::size_t order = 2; 
-        return integrateGridFunction(this->gridGeometry(), sol, order);
+        Scalar poro = integrateGridFunction(this->gridGeometry(), sol, order);
+        if (poro <= maxPoro_)
+            return poro;
+        else
+            return maxPoro_;
     }
 
 private:
@@ -167,6 +172,7 @@ private:
     Scalar eqconc_;
     std::vector<Scalar> poro_;
     Scalar conc_;
+    Scalar maxPoro_;
 
     Scalar centerX_; 
     Scalar centerY_;
