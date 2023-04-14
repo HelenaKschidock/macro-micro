@@ -66,6 +66,7 @@ public:
 
     void save_checkpoint();
     void reload_checkpoint();
+    MicroSimulation __deepcopy__(py::dict memo);
 
 private:
     const double pi_ = 3.14159265358979323846;
