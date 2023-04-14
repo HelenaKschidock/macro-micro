@@ -264,5 +264,6 @@ PYBIND11_MODULE(micro_sim, m) {
         .def("initialize", &MicroSimulation::initialize)
         .def("solve", &MicroSimulation::solve)
         .def("save_checkpoint", &MicroSimulation::save_checkpoint)
-        .def("reload_checkpoint", &MicroSimulation::reload_checkpoint);
+        .def("reload_checkpoint", &MicroSimulation::reload_checkpoint)
+        .def("__deepcopy__", &MicroSimulation::__deepcopy__);
 }
