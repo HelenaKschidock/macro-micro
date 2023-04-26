@@ -236,6 +236,7 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
     micro_write_data["porosity"] = _porosity;
     micro_write_data["grain_size"] = std::sqrt((1-_porosity)/pi_);
     
+
     // write current primary variables to previous primary variables
     _acGridVariables->advanceTimeStep();
 
@@ -275,11 +276,13 @@ py::tuple MicroSimulation::getState() const
 {   
     py::list phi_py;
     py::list phiOld_py;
+
     for(const auto & x : this->_phi) {
-        phi_py.append(x);
+        phi_py.append(x[0]);
     }
+
     for(const auto & xOld : this->_phiOld) {
-        phiOld_py.append(xOld);
+        phiOld_py.append(xOld[0]);
     }
 
     return py::make_tuple(phi_py, phiOld_py);
