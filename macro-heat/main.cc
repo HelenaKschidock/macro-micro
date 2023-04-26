@@ -116,7 +116,6 @@ int main(int argc, char** argv)
     std::string meshName = "macro-mesh";
     std::vector<double> coords;  
     std::vector<int> coupledElementIdxs;
-    const auto cells = getParam<std::array<int, 2>>("Grid.Cells", std::array<int, 2>{{1, 1}});
     
     // coordinate loop (created vectors are 1D)
     // these positions of cell centers are later communicated to precice
