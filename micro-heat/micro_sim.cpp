@@ -58,7 +58,7 @@ class MicroSimulation
     using SolutionVector = Dumux::GetPropType<CellProblemTypeTag, Dumux::Properties::SolutionVector>;
 
 public:
-    MicroSimulation(int sim_id);
+    MicroSimulation();
     void initialize();
 
     // solve takes python dict for macro_write data, dt, and returns python dict for macro_read data
@@ -67,9 +67,11 @@ public:
     void save_checkpoint();
     void reload_checkpoint();
 
+    void setState(py::list phi_py, py::list phiOld_py);
+    py::tuple getState() const;
+
 private:
     const double pi_ = 3.14159265358979323846;
-    int _sim_id;
     double _k_00;
     double _k_01;
     double _k_10;
@@ -97,14 +99,14 @@ private:
 };
 
 // Constructor
-MicroSimulation::MicroSimulation(int sim_id) : _sim_id(sim_id), _k_00(0.0), _k_01(0.0), _k_10(0.0),_k_11(0.0),_porosity(0.0), _phiOld(0.0) {};
+MicroSimulation::MicroSimulation() {};
 
 // Initialize
 void MicroSimulation::initialize()
 {   
     using namespace Dumux;
 
-    std::cout << "Initialize micro problem (" << _sim_id << ")\n";
+    std::cout << "Initialize micro problem \n";
 
     // parse the input file
     Parameters::init("params.input"); 
@@ -183,7 +185,7 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
     const auto& leafGridView = _gridManager.grid().leafGridView();
     _gridGeometry->update(leafGridView);
 
-    std::cout << "Solve timestep of micro problem (" << _sim_id << ")\n";
+    std::cout << "Solve timestep of micro problem \n";
 
     // assert(dt != 0);
     if (dt == 0)
@@ -209,7 +211,7 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
     // solve the cell problems 
     _cpLinearPDESolver->solve(_psi);
     
-    std::cout << "Compute upscaled quantities (" << _sim_id << ")\n";
+    std::cout << "Compute upscaled quantities \n";
 
     // calculate porosity 
     _porosity = _acProblem->calculatePorosity(_phi);
@@ -234,6 +236,7 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
     micro_write_data["porosity"] = _porosity;
     micro_write_data["grain_size"] = std::sqrt((1-_porosity)/pi_);
     
+
     // write current primary variables to previous primary variables
     _acGridVariables->advanceTimeStep();
 
@@ -243,26 +246,75 @@ py::dict MicroSimulation::solve(py::dict macro_write_data, double dt)
 // Save Checkpoint
 void MicroSimulation::save_checkpoint()
 {
-    std::cout << "Saving state of micro problem (" << _sim_id << ")\n";
+    std::cout << "Saving state of micro problem \n";
     _phiOld = _phi; 
 }
 
 // Reload Checkpoint
 void MicroSimulation::reload_checkpoint()
 {   
-    std::cout << "Reverting to old state of micro problem (" << _sim_id << ")\n";
+    std::cout << "Reverting to old state of micro problem \n";
     _phi = _phiOld;
     _acGridVariables->update(_phi);
     _acGridVariables->advanceTimeStep();
 }
 
+// This function needs to set the complete state of a micro simulation
+void MicroSimulation::setState(py::list phi_py, py::list phiOld_py)
+{   
+    for(int i = 0; i < py::len(phi_py); ++i) {
+        _phi[i] = phi_py[i].cast<double>();
+        _phiOld[i] = phiOld_py[i].cast<double>();
+    }
+    _acGridVariables->update(_phiOld);
+    _acGridVariables->advanceTimeStep();
+    _acGridVariables->update(_phi);
+}
+
+// This function needs to return variables which can fully define the state of a micro simulation
+py::tuple MicroSimulation::getState() const
+{   
+    py::list phi_py;
+    py::list phiOld_py;
+
+    for(const auto & x : this->_phi) {
+        phi_py.append(x[0]);
+    }
+
+    for(const auto & xOld : this->_phiOld) {
+        phiOld_py.append(xOld[0]);
+    }
+
+    return py::make_tuple(phi_py, phiOld_py);
+}
+
+
 PYBIND11_MODULE(micro_sim, m) {
     m.doc() = "pybind11 example plugin"; // optional module docstring
 
     py::class_<MicroSimulation>(m, "MicroSimulation")
-        .def(py::init<int>())
+        .def(py::init())
         .def("initialize", &MicroSimulation::initialize)
         .def("solve", &MicroSimulation::solve)
         .def("save_checkpoint", &MicroSimulation::save_checkpoint)
-        .def("reload_checkpoint", &MicroSimulation::reload_checkpoint);
+        .def("reload_checkpoint", &MicroSimulation::reload_checkpoint)
+        .def("get_state", &MicroSimulation::getState)
+        .def("set_state", &MicroSimulation::setState)
+        .def(py::pickle(
+            [](const MicroSimulation &ms) { // __getstate__
+                /* Return a tuple that fully encodes the state of the object */
+                return ms.getState();
+            },
+            [](py::tuple t) { // __setstate__
+                if (t.size() != 2)
+                    throw std::runtime_error("Invalid state!");
+                
+                /* Create a new C++ instance */
+                MicroSimulation ms;
+                ms.initialize();
+                ms.setState(t[0], t[1]);
+
+                return ms;
+            }
+        ));
 }

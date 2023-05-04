@@ -124,7 +124,6 @@ public:
             //! On interior faces we have to add phi0delta (K)-weighted e_k contributions
             if (!scvf.boundary())
             {
-                const auto& outsideScv = fvGeometry.scv(scvf.outsideScvIdx());
                 const auto outsideK = outsideVolVars.phi0delta(problem, outsideScv);
                 const auto outsideTi = fvGeometry.gridGeometry().isPeriodic()
                     ? computeTpfaTransmissibility(fvGeometry, fvGeometry.flipScvf(scvf.index()), outsideScv, outsideK, outsideVolVars.extrusionFactor())
